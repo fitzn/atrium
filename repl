@@ -1,0 +1,6 @@
+#!/bin/bash
+
+Version="0.0.1"
+
+scala -cp target/atrium-cli-$Version.jar -i repl-load.scala
+
