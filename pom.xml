@@ -11,6 +11,7 @@
   <properties>
     <scala.version>2.11</scala.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>${project.build.sourceEncoding}</project.reporting.outputEncoding>
   </properties>
 
   <build>
@@ -71,15 +72,21 @@
         </executions>
       </plugin>
 
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.16</version>
+        <configuration>
+          <includes>
+            <include>**/*Spec.java</include>
+          </includes>
+        </configuration>
+      </plugin>
+
     </plugins>
   </build>
 
   <dependencies>
-    <dependency>
-      <groupId>org.scalaj</groupId>
-      <artifactId>scalaj-http_2.11</artifactId>
-      <version>1.1.4</version>
-    </dependency>
     <dependency>
       <groupId>joda-time</groupId>
       <artifactId>joda-time</artifactId>
@@ -94,6 +101,13 @@
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.12</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.scalatest</groupId>
+      <artifactId>scalatest_${scala.version}</artifactId>
+      <version>2.2.6</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 

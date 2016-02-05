@@ -1,12 +1,16 @@
 //
-// Hamming.scala
+// HammingCoder.scala
 //
 // Copyright (c) 2016 MF Nowlan
 //
 
 package com.root81.atrium.ecc
 
-object Hamming {
+trait HammingCoder {
+  protected val hamming = new HammingCoderImpl()
+}
+
+protected[ecc] class HammingCoderImpl {
 
   // Pre-compute the 4-bits to codeword lookup table.
   private val codewordBy4Bits = (0 to 15).toList.
@@ -46,3 +50,4 @@ object Hamming {
     }.toByte
   }
 }
+

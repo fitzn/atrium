@@ -7,3 +7,7 @@
 
 target
 
+# vim
+
+*.swp
+
