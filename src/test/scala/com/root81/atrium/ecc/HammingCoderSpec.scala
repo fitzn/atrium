@@ -6,6 +6,7 @@
 
 package com.root81.atrium.ecc
 
+import java.util.BitSet
 import org.junit.runner.RunWith
 import org.scalatest.FlatSpec
 import org.scalatest.junit.JUnitRunner
@@ -14,6 +15,10 @@ import org.scalatest.junit.JUnitRunner
 class HammingCoderSpec extends FlatSpec {
 
   object TestHammingCoder extends HammingCoderImpl {
+    override def decodeBytePair(b0: Byte, b1: Byte, withCorrection: Boolean): Byte = super.decodeBytePair(b0, b1, withCorrection)
+    override def decodeByte(byte: Byte, withCorrection: Boolean): Byte = super.decodeByte(byte, withCorrection)
+    override def getHammingDistance(b0: Byte, b1: Byte): Int = super.getHammingDistance(b0, b1)
+    override def getBits(byte: Byte): BitSet = super.getBits(byte)
     override def getCodeword(bits: Byte): Byte = super.getCodeword(bits)
   }
 
@@ -62,5 +67,127 @@ class HammingCoderSpec extends FlatSpec {
     val actual = TestHammingCoder.toHamming84(bytes).toList
 
     assert(actual == expected)
+  }
+
+  it should "return the bitSet for a byte " in {
+    val bitSet0 = TestHammingCoder.getBits(0x88.toByte)
+    assert(bitSet0.get(7) == true)
+    assert(bitSet0.get(3) == true)
+    assert(bitSet0.cardinality == 2)
+
+    val bitSet1 = TestHammingCoder.getBits(0xf7.toByte)
+    assert(bitSet1.get(3) == false)
+    assert(bitSet1.cardinality == 7)
+  }
+
+  it should "measure the hamming distance between bytes " in {
+    assert(TestHammingCoder.getHammingDistance(0x80.toByte, 0x81.toByte) == 1)
+    assert(TestHammingCoder.getHammingDistance(0x8f.toByte, 0x81.toByte) == 3)
+    assert(TestHammingCoder.getHammingDistance(0x77.toByte, 0x88.toByte) == 8)
+    assert(TestHammingCoder.getHammingDistance(0xf7.toByte, 0x7f.toByte) == 2)
+    assert(TestHammingCoder.getHammingDistance(0xf0.toByte, 0xff.toByte) == 4)
+  }
+
+  it should "decode a valid codeword " in {
+    CODEWORD_BY_BITS.foreach {
+      case (bits, code) => assert(TestHammingCoder.decodeByte(code, false) == bits)
+    }
+  }
+
+  it should "throw an exception on a one bit error in codeword without correction " in {
+    // 0x1 and 0xfe are 1-bit errors on valid codewords.
+    for (err <- List(0x1.toByte, 0xfe.toByte)) {
+      val thrown = intercept[ByteCorruptionException] {
+        TestHammingCoder.decodeByte(err, false)
+      }
+      assert(thrown.distance == 1)
+    }
+  }
+
+  it should "decode a one bit error with correction " in {
+    // 0x1 and 0xfe are 1-bit errors on valid codewords.
+    val err0 = 0x1.toByte
+    val err1 = 0xfe.toByte
+
+    assert(TestHammingCoder.decodeByte(err0, true) == 0x0.toByte)
+    assert(TestHammingCoder.decodeByte(err1, true) == 0xf.toByte)
+  }
+
+  it should "throw an exception on a two bit error in a codeword " in {
+    // 0x3 and 0xfc are 2-bit errors on valid codewords.
+    for (err <- List(0x3.toByte, 0xfc.toByte)) {
+      // First, test without correction.
+      val thrown0 = intercept[ByteCorruptionException] {
+        TestHammingCoder.decodeByte(err, false)
+      }
+      assert(thrown0.distance == 2)
+
+      // Then, test with correction and verify that it still fails.
+      val thrown1 = intercept[ByteCorruptionException] {
+        TestHammingCoder.decodeByte(err, true)
+      }
+      assert(thrown1.distance == 2)
+    }
+  }
+
+  it should "decode a byte pair with no errors " in {
+    val data0 = TestHammingCoder.decodeBytePair(0x0.toByte, 0xff.toByte, false)
+    assert(data0 == 0xf.toByte)
+
+    val data1 = TestHammingCoder.decodeBytePair(0xff.toByte, 0x0.toByte, false)
+    assert(data1 == 0xf0.toByte)
+  }
+
+  it should "decode a byte pair with one error and correction " in {
+    val data0 = TestHammingCoder.decodeBytePair(0x1.toByte, 0xf7.toByte, true)
+    assert(data0 == 0xf.toByte)
+
+    val data1 = TestHammingCoder.decodeBytePair(0xfe.toByte, 0x1.toByte, true)
+    assert(data1 == 0xf0.toByte)
+  }
+
+  it should "throw an exception on two bit errors in byte pair regardless of correction " in {
+    val thrown0 = intercept[ByteCorruptionException] {
+      TestHammingCoder.decodeBytePair(0x3.toByte, 0xf3.toByte, false)
+    }
+    assert(thrown0.distance == 2)
+
+    val thrown1 = intercept[ByteCorruptionException] {
+      TestHammingCoder.decodeBytePair(0xfc.toByte, 0x7.toByte, true)
+    }
+    assert(thrown1.distance == 2)
+  }
+
+  it should "decode a byte array " in {
+    val str = "abc"
+    val bytes = str.getBytes("UTF-8")
+    val encoded = TestHammingCoder.toHamming84(bytes)
+    val decoded = TestHammingCoder.fromHamming84(encoded)
+    val output = new String(decoded, "UTF-8")
+    assert(output == str)
+  }
+
+  it should "throw an exception on a byte array with one bit errors without correction " in {
+    val thrown = intercept[ByteCorruptionException] {
+      TestHammingCoder.fromHamming84(Array(0x1.toByte, 0xf7.toByte), false)
+    }
+    assert(thrown.distance == 1)
+  }
+
+  it should "decode a byte array with one bit errors " in {
+    val data = TestHammingCoder.fromHamming84(Array(0x1.toByte, 0xf7.toByte), true)
+    assert(data.head == 0xf.toByte)
+  }
+
+  it should "throw an exception on a byte array with 2-bit errors " in {
+    val thrown0 = intercept[ByteCorruptionException] {
+      TestHammingCoder.fromHamming84(Array(0x3.toByte, 0xf3.toByte), false)
+    }
+    assert(thrown0.distance == 2)
+
+    val thrown1 = intercept[ByteCorruptionException] {
+      TestHammingCoder.fromHamming84(Array(0xfc.toByte, 0x7.toByte), true)
+    }
+    assert(thrown1.distance == 2)
   }
 }
