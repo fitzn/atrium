@@ -8,11 +8,7 @@ package com.root81.atrium.ecc
 
 import java.util
 
-trait HammingCoder {
-  protected val hamming = new HammingCoderImpl()
-}
-
-protected[ecc] class HammingCoderImpl {
+class HammingCoder {
 
   // Pre-compute the 4-bits to codeword lookup table and the reverse.
   private val codewordBy4Bits = (0 to 15).map(_.toByte).toList.

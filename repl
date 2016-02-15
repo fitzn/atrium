@@ -2,5 +2,5 @@
 
 Version="0.0.1"
 
-scala -cp target/atrium-cli-$Version.jar -i repl-load.scala
+scala -Djava.awt.headless=true -cp target/atrium-cli-$Version.jar -i repl-load.scala
 

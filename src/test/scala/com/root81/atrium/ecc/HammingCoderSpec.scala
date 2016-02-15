@@ -14,7 +14,7 @@ import org.scalatest.junit.JUnitRunner
 @RunWith(classOf[JUnitRunner])
 class HammingCoderSpec extends FlatSpec {
 
-  object TestHammingCoder extends HammingCoderImpl {
+  object TestHammingCoder extends HammingCoder {
     override def decodeBytePair(b0: Byte, b1: Byte, withCorrection: Boolean): Byte = super.decodeBytePair(b0, b1, withCorrection)
     override def decodeByte(byte: Byte, withCorrection: Boolean): Byte = super.decodeByte(byte, withCorrection)
     override def getHammingDistance(b0: Byte, b1: Byte): Int = super.getHammingDistance(b0, b1)
