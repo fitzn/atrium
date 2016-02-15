@@ -6,7 +6,7 @@
 
 package com.root81.atrium.ecc
 
-import java.util.BitSet
+import java.util
 import org.junit.runner.RunWith
 import org.scalatest.FlatSpec
 import org.scalatest.junit.JUnitRunner
@@ -18,7 +18,7 @@ class HammingCoderSpec extends FlatSpec {
     override def decodeBytePair(b0: Byte, b1: Byte, withCorrection: Boolean): Byte = super.decodeBytePair(b0, b1, withCorrection)
     override def decodeByte(byte: Byte, withCorrection: Boolean): Byte = super.decodeByte(byte, withCorrection)
     override def getHammingDistance(b0: Byte, b1: Byte): Int = super.getHammingDistance(b0, b1)
-    override def getBits(byte: Byte): BitSet = super.getBits(byte)
+    override def getBits(byte: Byte): util.BitSet = super.getBits(byte)
     override def getCodeword(bits: Byte): Byte = super.getCodeword(bits)
   }
 
@@ -71,12 +71,12 @@ class HammingCoderSpec extends FlatSpec {
 
   it should "return the bitSet for a byte " in {
     val bitSet0 = TestHammingCoder.getBits(0x88.toByte)
-    assert(bitSet0.get(7) == true)
-    assert(bitSet0.get(3) == true)
+    assert(bitSet0.get(7))
+    assert(bitSet0.get(3))
     assert(bitSet0.cardinality == 2)
 
     val bitSet1 = TestHammingCoder.getBits(0xf7.toByte)
-    assert(bitSet1.get(3) == false)
+    assert(!bitSet1.get(3))
     assert(bitSet1.cardinality == 7)
   }
 
@@ -90,7 +90,7 @@ class HammingCoderSpec extends FlatSpec {
 
   it should "decode a valid codeword " in {
     CODEWORD_BY_BITS.foreach {
-      case (bits, code) => assert(TestHammingCoder.decodeByte(code, false) == bits)
+      case (bits, code) => assert(TestHammingCoder.decodeByte(code, withCorrection = false) == bits)
     }
   }
 
@@ -98,7 +98,7 @@ class HammingCoderSpec extends FlatSpec {
     // 0x1 and 0xfe are 1-bit errors on valid codewords.
     for (err <- List(0x1.toByte, 0xfe.toByte)) {
       val thrown = intercept[ByteCorruptionException] {
-        TestHammingCoder.decodeByte(err, false)
+        TestHammingCoder.decodeByte(err, withCorrection = false)
       }
       assert(thrown.distance == 1)
     }
@@ -109,8 +109,8 @@ class HammingCoderSpec extends FlatSpec {
     val err0 = 0x1.toByte
     val err1 = 0xfe.toByte
 
-    assert(TestHammingCoder.decodeByte(err0, true) == 0x0.toByte)
-    assert(TestHammingCoder.decodeByte(err1, true) == 0xf.toByte)
+    assert(TestHammingCoder.decodeByte(err0, withCorrection = true) == 0x0.toByte)
+    assert(TestHammingCoder.decodeByte(err1, withCorrection = true) == 0xf.toByte)
   }
 
   it should "throw an exception on a two bit error in a codeword " in {
@@ -118,42 +118,42 @@ class HammingCoderSpec extends FlatSpec {
     for (err <- List(0x3.toByte, 0xfc.toByte)) {
       // First, test without correction.
       val thrown0 = intercept[ByteCorruptionException] {
-        TestHammingCoder.decodeByte(err, false)
+        TestHammingCoder.decodeByte(err, withCorrection = false)
       }
       assert(thrown0.distance == 2)
 
       // Then, test with correction and verify that it still fails.
       val thrown1 = intercept[ByteCorruptionException] {
-        TestHammingCoder.decodeByte(err, true)
+        TestHammingCoder.decodeByte(err, withCorrection = true)
       }
       assert(thrown1.distance == 2)
     }
   }
 
   it should "decode a byte pair with no errors " in {
-    val data0 = TestHammingCoder.decodeBytePair(0x0.toByte, 0xff.toByte, false)
+    val data0 = TestHammingCoder.decodeBytePair(0x0.toByte, 0xff.toByte, withCorrection = false)
     assert(data0 == 0xf.toByte)
 
-    val data1 = TestHammingCoder.decodeBytePair(0xff.toByte, 0x0.toByte, false)
+    val data1 = TestHammingCoder.decodeBytePair(0xff.toByte, 0x0.toByte, withCorrection = false)
     assert(data1 == 0xf0.toByte)
   }
 
   it should "decode a byte pair with one error and correction " in {
-    val data0 = TestHammingCoder.decodeBytePair(0x1.toByte, 0xf7.toByte, true)
+    val data0 = TestHammingCoder.decodeBytePair(0x1.toByte, 0xf7.toByte, withCorrection = true)
     assert(data0 == 0xf.toByte)
 
-    val data1 = TestHammingCoder.decodeBytePair(0xfe.toByte, 0x1.toByte, true)
+    val data1 = TestHammingCoder.decodeBytePair(0xfe.toByte, 0x1.toByte, withCorrection = true)
     assert(data1 == 0xf0.toByte)
   }
 
   it should "throw an exception on two bit errors in byte pair regardless of correction " in {
     val thrown0 = intercept[ByteCorruptionException] {
-      TestHammingCoder.decodeBytePair(0x3.toByte, 0xf3.toByte, false)
+      TestHammingCoder.decodeBytePair(0x3.toByte, 0xf3.toByte, withCorrection = false)
     }
     assert(thrown0.distance == 2)
 
     val thrown1 = intercept[ByteCorruptionException] {
-      TestHammingCoder.decodeBytePair(0xfc.toByte, 0x7.toByte, true)
+      TestHammingCoder.decodeBytePair(0xfc.toByte, 0x7.toByte, withCorrection = true)
     }
     assert(thrown1.distance == 2)
   }
@@ -169,24 +169,24 @@ class HammingCoderSpec extends FlatSpec {
 
   it should "throw an exception on a byte array with one bit errors without correction " in {
     val thrown = intercept[ByteCorruptionException] {
-      TestHammingCoder.fromHamming84(Array(0x1.toByte, 0xf7.toByte), false)
+      TestHammingCoder.fromHamming84(Array(0x1.toByte, 0xf7.toByte), withCorrection = false)
     }
     assert(thrown.distance == 1)
   }
 
   it should "decode a byte array with one bit errors " in {
-    val data = TestHammingCoder.fromHamming84(Array(0x1.toByte, 0xf7.toByte), true)
+    val data = TestHammingCoder.fromHamming84(Array(0x1.toByte, 0xf7.toByte), withCorrection = true)
     assert(data.head == 0xf.toByte)
   }
 
   it should "throw an exception on a byte array with 2-bit errors " in {
     val thrown0 = intercept[ByteCorruptionException] {
-      TestHammingCoder.fromHamming84(Array(0x3.toByte, 0xf3.toByte), false)
+      TestHammingCoder.fromHamming84(Array(0x3.toByte, 0xf3.toByte), withCorrection = false)
     }
     assert(thrown0.distance == 2)
 
     val thrown1 = intercept[ByteCorruptionException] {
-      TestHammingCoder.fromHamming84(Array(0xfc.toByte, 0x7.toByte), true)
+      TestHammingCoder.fromHamming84(Array(0xfc.toByte, 0x7.toByte), withCorrection = true)
     }
     assert(thrown1.distance == 2)
   }

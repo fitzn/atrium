@@ -11,3 +11,8 @@ target
 
 *.swp
 
+# IntelliJ
+
+.idea/
+*.iml
+

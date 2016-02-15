@@ -6,7 +6,7 @@
 
 package com.root81.atrium.ecc
 
-import java.util.BitSet
+import java.util
 
 trait HammingCoder {
   protected val hamming = new HammingCoderImpl()
@@ -32,8 +32,8 @@ protected[ecc] class HammingCoderImpl {
   }
 
   def fromHamming84(bytes: Array[Byte], withCorrection: Boolean = false): Array[Byte] = {
-    if (bytes.size % 2 != 0) {
-      throw new InvalidLengthException("There must be an even number of encoded bytes: " + bytes.size)
+    if (bytes.length % 2 != 0) {
+      throw new InvalidLengthException("There must be an even number of encoded bytes: " + bytes.length)
     }
 
     bytes.grouped(2).map(pair =>
@@ -79,9 +79,9 @@ protected[ecc] class HammingCoderImpl {
     bits0.cardinality
   }
 
-  protected def getBits(byte: Byte): BitSet = {
-    val bits = new BitSet
-    (0 to 7).map(shift => bits.set(shift, ((byte >> shift) & 0x1) != 0))
+  protected def getBits(byte: Byte): util.BitSet = {
+    val bits = new util.BitSet
+    (0 to 7).foreach(shift => bits.set(shift, ((byte >> shift) & 0x1) != 0))
     bits
   }
 
