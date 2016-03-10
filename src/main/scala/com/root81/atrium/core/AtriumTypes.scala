@@ -4,7 +4,7 @@
 // Copyright (c) 2016 MF Nowlan
 //
 
-package com.root81.atrium.utils
+package com.root81.atrium.core
 
 //
 // Exceptions
@@ -15,6 +15,14 @@ case class UnsupportedDimensionsException(width: Int, height: Int, msg: String) 
 //
 // Data Types
 //
+
+case class DCTRegion(
+  width: Int,
+  height: Int,
+  channel0: Vector[Vector[Double]],
+  channel1: Vector[Vector[Double]],
+  channel2: Vector[Vector[Double]]
+)
 
 case class RGBRegion(
   width: Int,

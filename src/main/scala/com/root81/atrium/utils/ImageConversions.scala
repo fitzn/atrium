@@ -6,6 +6,7 @@
 
 package com.root81.atrium.utils
 
+import com.root81.atrium.core.{YCCPixel, YCCRegion, RGBRegion, RegionedImage}
 import java.awt.image.BufferedImage
 
 object ImageConversions {

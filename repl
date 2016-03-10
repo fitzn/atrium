@@ -1,6 +1,0 @@
-#!/bin/bash
-
-Version="0.0.1"
-
-scala -Djava.awt.headless=true -cp target/atrium-cli-$Version.jar -i repl-load.scala
-
