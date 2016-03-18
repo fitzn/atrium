@@ -11,12 +11,14 @@ import java.awt.image.BufferedImage
 
 object ImageConversions {
 
+  val COLOR_ALPHA_CONSTANT = 255  // Assume colors are completely opaque in the getPixel method.
   val YCC_BIT_DEPTH = 8
   val YCC_BIT_DEPTH_CONSTANT = Math.pow(2, YCC_BIT_DEPTH - 1)
 
   def getRed(pixel: Int): Int = (pixel >> 16) & 0xFF
   def getGreen(pixel: Int): Int = (pixel >> 8) & 0xFF
   def getBlue(pixel: Int): Int = (pixel >> 0) & 0xFF
+  def getPixel(r: Int, g: Int, b: Int): Int = (COLOR_ALPHA_CONSTANT << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF)
 
   def toRegionedImage(image: BufferedImage, regionWidth: Int, regionHeight: Int): RegionedImage = {
     val (width, height) = (image.getWidth, image.getHeight)
@@ -59,5 +61,17 @@ object ImageConversions {
     })
 
     YCCRegion(region.width, region.height, yccPixels)
+  }
+
+  def toRGBRegion(region: YCCRegion): RGBRegion = {
+
+    val rgbPixels = region.pixels.map(yccPixel => {
+      val r = (yccPixel.y + 1.40200 * (yccPixel.cr - YCC_BIT_DEPTH_CONSTANT)).round.toInt
+      val g = (yccPixel.y - 0.34414 * (yccPixel.cb - YCC_BIT_DEPTH_CONSTANT) - 0.71414 * (yccPixel.cr - YCC_BIT_DEPTH_CONSTANT)).round.toInt
+      val b = (yccPixel.y + 1.77200 * (yccPixel.cb - YCC_BIT_DEPTH_CONSTANT)).round.toInt
+      getPixel(r, g, b)
+    })
+
+    RGBRegion(region.width, region.height, rgbPixels)
   }
 }

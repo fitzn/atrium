@@ -25,3 +25,4 @@ AtriumLogger.info(s"Loaded $filename into 'image'")
 val regionedImage = toRegionedImage(image, 8, 8)
 val rgbRegion = regionedImage.regions.head
 val yccRegion = toYCCRegion(rgbRegion)
+val dctRegion = AtriumDCT.applyRegionDCT(yccRegion)

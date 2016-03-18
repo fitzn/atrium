@@ -16,30 +16,35 @@ object AtriumLogger {
   private val DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSSZ"
   private val dateFormatter = new SimpleDateFormat(DATE_FORMAT)
 
+  private val DEBUG_LEVEL = "DEBUG"
+  private val ERROR_LEVEL = "ERROR"
+  private val INFO_LEVEL = "INFO"
+  private val WARN_LEVEL = "WARN"
+
   def debug(message: String): Unit = {
     if (DEBUG) {
-      log("DEBUG: " + message)
+      log(DEBUG_LEVEL, message)
     }
   }
 
   def info(message: String): Unit = {
-    log("INFO: " + message)
+    log(INFO_LEVEL, message)
   }
 
   def error(message: String): Unit = {
-    log("ERROR: " + message)
+    log(ERROR_LEVEL, message)
   }
 
   def warn(message: String): Unit = {
-    log("WARN: " + message)
+    log(WARN_LEVEL, message)
   }
 
   //
   // Internal helpers
   //
 
-  private def log(str: String): Unit = {
+  private def log(level: String, str: String): Unit = {
     val prefix = dateFormatter.format(new Date())
-    println(s"$prefix - $str")
+    println(s"$prefix - $level: $str")
   }
 }

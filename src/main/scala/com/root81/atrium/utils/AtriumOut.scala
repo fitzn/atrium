@@ -6,7 +6,7 @@
 
 package com.root81.atrium.utils
 
-import com.root81.atrium.core.{YCCRegion, RGBRegion}
+import com.root81.atrium.core.{DCTRegion, RGBRegion, YCCRegion}
 
 object AtriumOut {
 
@@ -36,6 +36,14 @@ object AtriumOut {
     rows.foreach(row => {
       // For now, just print the Y.
       val formattedRow = row.map(pixel => "(%.3f)".format(pixel.y)).mkString(" ")
+      println(formattedRow)
+    })
+  }
+
+  def print(region: DCTRegion): Unit = {
+    // For now, just print the first channel, channel0.
+    region.channel0.foreach(row => {
+      val formattedRow = row.map(x => "(%.3f)".format(x)).mkString(" ")
       println(formattedRow)
     })
   }
