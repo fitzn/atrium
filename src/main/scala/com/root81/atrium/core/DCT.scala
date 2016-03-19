@@ -1,12 +1,12 @@
 //
-// AtriumDCT.scala
+// DCT.scala
 //
 // Copyright (c) 2016 MF Nowlan
 //
 
 package com.root81.atrium.core
 
-object AtriumDCT {
+object DCT {
 
   private val RANGE_HALF = 128D
 
@@ -16,7 +16,7 @@ object AtriumDCT {
       s"Malformed region: width=${region.width} * height=${region.height} should equal pixels=${region.pixels.size}"
     )
 
-    require(region.width == region.height, "AtriumDCT only works on square regions")
+    require(region.width == region.height, "Atrium DCT only works on square regions")
 
     def normalizeRangeValues(values: Vector[Double]): Vector[Vector[Double]] = values.map(_ - RANGE_HALF).grouped(region.width).toVector
     val pixels = region.pixels.toVector
@@ -58,7 +58,7 @@ object AtriumDCT {
     if (matrix.isEmpty) return Vector.empty[Vector[Double]]
 
     require(matrix.map(_.size).toSet.size == 1, "matrix has rows with different number of columns")
-    require(matrix.size == matrix.head.size, "AtriumDCT only works on square matrices")
+    require(matrix.size == matrix.head.size, "Atrium DCT only works on square matrices")
 
     val size = matrix.size
     val divFactor = 2D / size
@@ -84,7 +84,7 @@ object AtriumDCT {
     if (matrix.isEmpty) return Vector.empty[Vector[Double]]
 
     require(matrix.map(_.size).toSet.size == 1, "matrix has rows with different number of columns")
-    require(matrix.size == matrix.head.size, "AtriumDCT only works on square matrices")
+    require(matrix.size == matrix.head.size, "Atrium DCT only works on square matrices")
 
     val size = matrix.size
     val divFactor = 2D / size

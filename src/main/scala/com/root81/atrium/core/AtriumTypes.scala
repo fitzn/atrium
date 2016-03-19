@@ -16,6 +16,11 @@ case class UnsupportedDimensionsException(width: Int, height: Int, msg: String) 
 // Data Types
 //
 
+case class QuantizedMatrix(
+  quality: Int,
+  coefficients: Vector[Vector[Int]]
+)
+
 case class DCTRegion(
   width: Int,
   height: Int,

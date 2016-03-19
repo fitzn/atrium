@@ -1,5 +1,5 @@
 //
-// AtriumDCTSpec.scala
+// DCTSpec.scala
 //
 // Copyright (c) 2016 MF Nowlan
 //
@@ -11,7 +11,7 @@ import org.scalatest.FlatSpec
 import org.scalatest.junit.JUnitRunner
 
 @RunWith(classOf[JUnitRunner])
-class AtriumDCTSpec extends FlatSpec {
+class DCTSpec extends FlatSpec {
 
   private val ERROR_MARGIN = 0.0001
 
@@ -36,11 +36,11 @@ class AtriumDCTSpec extends FlatSpec {
     Vector(-41, -49, -59, -60, -63, -52, -50, -34)
   )
 
-  behavior of "AtriumDCT"
+  behavior of "Atrium's DCT"
 
   it should "apply the DCT on a small matrix" in {
     val matrix0 = MATRIX_0.map(_.map(_.toDouble))
-    val result0 = AtriumDCT.applyDCT(matrix0).
+    val result0 = DCT.applyDCT(matrix0).
       map(_.map(_.round))   // Rounds to a Long.
 
     assert(result0 == RESULT_0)
@@ -48,7 +48,7 @@ class AtriumDCTSpec extends FlatSpec {
 
   it should "apply the IDCT on a small matrix" in {
     val dctMatrix0 = RESULT_0.map(_.map(_.toDouble))
-    val result0 = AtriumDCT.applyIDCT(dctMatrix0).
+    val result0 = DCT.applyIDCT(dctMatrix0).
       map(_.map(_.round))   // Rounds to a Long.
 
     assert(result0 == MATRIX_0)
@@ -56,8 +56,8 @@ class AtriumDCTSpec extends FlatSpec {
 
   it should "apply the DCT and then the IDCT to reverse it on a large matrix" in {
     val inputMatrix = MATRIX_1.map(_.map(_.toDouble))
-    val dctMatrix = AtriumDCT.applyDCT(inputMatrix)
-    val resultMatrix = AtriumDCT.applyIDCT(dctMatrix).
+    val dctMatrix = DCT.applyDCT(inputMatrix)
+    val resultMatrix = DCT.applyIDCT(dctMatrix).
       map(_.map(_.round))   // Rounds to a Long.
 
     assert(resultMatrix == MATRIX_1)
@@ -72,8 +72,8 @@ class AtriumDCTSpec extends FlatSpec {
     )
     val yccRegionInput = YCCRegion(2, 2, yccPixels)
 
-    val dctRegion = AtriumDCT.applyRegionDCT(yccRegionInput)
-    val yccRegionOutput = AtriumDCT.unapplyRegionDCT(dctRegion)
+    val dctRegion = DCT.applyRegionDCT(yccRegionInput)
+    val yccRegionOutput = DCT.unapplyRegionDCT(dctRegion)
 
     assert(yccRegionInput.width == yccRegionOutput.width)
     assert(yccRegionInput.height == yccRegionOutput.height)

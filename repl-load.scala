@@ -25,4 +25,11 @@ AtriumLogger.info(s"Loaded $filename into 'image'")
 val regionedImage = toRegionedImage(image, 8, 8)
 val rgbRegion = regionedImage.regions.head
 val yccRegion = toYCCRegion(rgbRegion)
-val dctRegion = AtriumDCT.applyRegionDCT(yccRegion)
+val dctRegion = DCT.applyRegionDCT(yccRegion)
+
+val quality = 75
+val qChannel = JPEGQuantization.quantize(dctRegion.channel0, quality)
+
+def getQChannels(): List[QuantizedMatrix] = {
+  regionedImage.regions.map(toYCCRegion).map(DCT.applyRegionDCT).map(r => JPEGQuantization.quantize(r.channel0, quality))
+}

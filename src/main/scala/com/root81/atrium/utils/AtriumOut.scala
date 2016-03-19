@@ -6,7 +6,7 @@
 
 package com.root81.atrium.utils
 
-import com.root81.atrium.core.{DCTRegion, RGBRegion, YCCRegion}
+import com.root81.atrium.core.{DCTRegion, QuantizedMatrix, RGBRegion, YCCRegion}
 
 object AtriumOut {
 
@@ -44,6 +44,14 @@ object AtriumOut {
     // For now, just print the first channel, channel0.
     region.channel0.foreach(row => {
       val formattedRow = row.map(x => "(%.3f)".format(x)).mkString(" ")
+      println(formattedRow)
+    })
+  }
+
+  def print(matrix: QuantizedMatrix): Unit = {
+    println(s"QuantizedMatrix quality: ${matrix.quality}")
+    matrix.coefficients.foreach(row => {
+      val formattedRow = row.map(x => ("   " + x.toString).takeRight(4)).mkString(" ")
       println(formattedRow)
     })
   }
