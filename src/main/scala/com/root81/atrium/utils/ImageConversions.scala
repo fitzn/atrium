@@ -50,6 +50,38 @@ object ImageConversions {
     RegionedImage(width, height, regions)
   }
 
+  def toBufferedImage(regionedImage: RegionedImage): BufferedImage = {
+    val regions = regionedImage.regions
+    val width = regionedImage.width
+    val widthSum = regions.map(_.width).sum
+    val height = regionedImage.height
+    val heightSum = regions.map(_.height).sum
+
+    require(widthSum % width == 0, "Malformed RegionedImage; sum of regions' width is not a multiple of image width")
+    require(heightSum % height == 0, "Malformed RegionedImage; sum of regions' height is not a multiple of image height")
+
+    var (x, y) = (0, 0)
+    val image = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR)
+
+    regions.foreach(region => {
+
+      // Loop through every pixel in this region and write it into the image at the corresponding location based off of the top-left, (x, y).
+      (0 until region.height).toList.foreach(row => {
+        (0 until region.width).toList.foreach(col => {
+          val pixelIndex = (row * region.width) + col
+          val pixel = region.pixels(pixelIndex)
+          image.setRGB(x + col, y + row, pixel)
+        })
+      })
+
+      // We've finished this region, so move the (x, y) to the top left of the next region.
+      x = (x + region.width) % width
+      y = if (x == 0) y + region.height else y
+    })
+
+    image
+  }
+
   def toYCCRegion(region: RGBRegion): YCCRegion = {
 
     val yccPixels = region.pixels.map(rgbPixel => {
