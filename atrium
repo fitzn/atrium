@@ -1,0 +1,4 @@
+#!/bin/bash
+
+scala -Djava.awt.headless=true -cp target/atrium-cli*.jar com.root81.atrium.app.Atrium "$@"
+

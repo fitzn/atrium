@@ -8,7 +8,7 @@ package com.root81.atrium.utils
 
 import java.awt.image.BufferedImage
 import java.io.File
-import javax.imageio.ImageIO
+import javax.imageio.{IIOImage, ImageIO, ImageWriteParam}
 
 object ImageLoader {
 
@@ -27,5 +27,25 @@ object ImageLoader {
       val filename = file.getName
       (filename, loadImageFile(file))
     }).toMap
+  }
+
+  def writeImageToJPGFile(path: String, image: BufferedImage, quality: Int): Unit = {
+    require(0 <= quality && quality <= 100, "JPG quality must be between 0 and 100")
+
+    val outputStream =  ImageIO.createImageOutputStream(new File(path))
+    val jpgWriters = ImageIO.getImageWritersByFormatName("jpg")
+
+    if (!jpgWriters.hasNext) {
+      throw new RuntimeException("Could not find a JPG ImageWriter on this system")
+    }
+
+    val writer = jpgWriters.next()
+    val writeParams = writer.getDefaultWriteParam
+    writeParams.setCompressionMode(ImageWriteParam.MODE_EXPLICIT)
+    writeParams.setCompressionQuality(quality / 100f)
+
+    writer.setOutput(outputStream)
+    writer.write(null, new IIOImage(image, null, null), writeParams)
+    writer.dispose()
   }
 }

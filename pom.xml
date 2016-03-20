@@ -80,6 +80,9 @@
           <includes>
             <include>**/*Spec.java</include>
           </includes>
+          <systemPropertyVariables>
+            <java.awt.headless>true</java.awt.headless>
+          </systemPropertyVariables>
         </configuration>
       </plugin>
 

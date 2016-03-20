@@ -8,6 +8,8 @@ package com.root81.atrium.ecc
 
 import java.util
 
+// This is a class so that we can test the internal methods more easily
+// since Scala doesn't allow inheritance from objects.
 class HammingCoder {
 
   // Pre-compute the 4-bits to codeword lookup table and the reverse.
