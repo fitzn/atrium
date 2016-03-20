@@ -21,7 +21,7 @@ class HammingCoder {
    */
   def toHamming84(bytes: Array[Byte]): Array[Byte] = {
     bytes.flatMap(b => {
-      val (lowBits, highBits) = ((b & 0xf).toByte, ((b & 0xf0) >> 4).toByte)
+      val (highBits, lowBits) = (((b & 0xf0) >> 4).toByte, (b & 0xf).toByte)
 
       List(codewordBy4Bits(highBits), codewordBy4Bits(lowBits))
     })
