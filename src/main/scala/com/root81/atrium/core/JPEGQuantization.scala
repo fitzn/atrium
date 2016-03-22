@@ -55,7 +55,7 @@ object JPEGQuantization {
   //
 
   protected def getScaleFactor(quality: Int): Double = {
-    require(quality >= 0 && quality <= 100, s"Illegal quality factor ($quality) must be between 0 and 100.")
+    require(quality >= 0 && quality <= 100, s"Illegal quality factor: ($quality) must be between 0 and 100.")
 
     if (quality < 50) {
       50D / quality

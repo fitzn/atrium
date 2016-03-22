@@ -18,7 +18,7 @@ import org.scalatest.junit.JUnitRunner
 @RunWith(classOf[JUnitRunner])
 class ImageConversionsSpec extends FlatSpec {
 
-  private val TEST_IMAGE_PATH = "src/test/resources/test-images/keyboard.jpg"
+  private val TEST_IMAGE_PATH = "src/test/resources/images/keyboard.jpg"
   private val TEST_REGION_WIDTH = 8
   private val TEST_REGION_HEIGHT = 8
 

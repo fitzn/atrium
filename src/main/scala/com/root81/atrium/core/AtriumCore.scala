@@ -1,39 +1,23 @@
 //
-// AtriumHelpers.scala
+// AtriumCore.scala
 //
 // Copyright (c) 2016 MF Nowlan
 //
 
-package com.root81.atrium.app
+package com.root81.atrium.core
 
-import com.root81.atrium.core._
 import com.root81.atrium.ecc.HammingCoder
 import com.root81.atrium.utils.ImageConversions
 import java.awt.image.BufferedImage
 import java.io.File
 
-object AtriumHelper {
+object AtriumCore {
 
   val DEFAULT_ENCODE_FILE_SUFFIX = "-atrium"
   val REGION_DIMENSION = 8
   val UTF8 = "UTF-8"
 
   private val hamming = new HammingCoder()
-
-  def getExistingJPGFile(path: String): File = {
-
-    if (!path.toLowerCase.endsWith(".jpg")) {
-      exit(1, Some("atrium: Only .jpg files are supported"))
-    }
-
-    val file = new File(path)
-
-    if (!file.exists()) {
-      exit(1, Some(s"atrium: '${file.getName}' does not exist"))
-    }
-
-    file
-  }
 
   def safeGetRegionedImage(image: BufferedImage, minRegionsNeeded: Option[Int] = None): RegionedImage = {
 
@@ -131,7 +115,7 @@ object AtriumHelper {
     availableValue.get.toByte
   }
 
-  def makeAtriumOutputFilename(path: String): String = {
+  def fromInputPathToOutputPath(path: String): String = {
     val lastDot = path.lastIndexOf('.')
     val prefix = path.substring(0, lastDot)
     val suffix = path.substring(lastDot)

@@ -12,8 +12,21 @@ import javax.imageio.{IIOImage, ImageIO, ImageWriteParam}
 
 object ImageLoader {
 
+  def loadJPGImage(path: String): BufferedImage = {
+    if (!path.toLowerCase.endsWith(".jpg")) {
+      throw new IllegalArgumentException(s"ImageLoader - file path must end in .jpg: $path")
+    }
+
+    loadImage(path)
+  }
+
   def loadImage(path: String): BufferedImage = {
     val file = new File(path)
+
+    if (!file.exists()) {
+      throw new IllegalArgumentException(s"ImageLoader - file path not found: $path")
+    }
+
     loadImageFile(file)
   }
 

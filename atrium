@@ -1,4 +1,9 @@
 #!/bin/bash
 
-scala -Djava.awt.headless=true -cp target/atrium-cli*.jar com.root81.atrium.app.Atrium "$@"
+if [ "$1" == "-d" -o "$1" == "-debug" -o "$1" == "--debug" ]; then
+  Debug="-Dcom.root81.atrium.debug=true"
+  shift
+fi
+
+scala $Debug -Djava.awt.headless=true -cp target/atrium-cli*.jar com.root81.atrium.app.Atrium "$@"
 

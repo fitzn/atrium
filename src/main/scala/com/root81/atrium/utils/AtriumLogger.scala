@@ -11,7 +11,7 @@ import java.util.Date
 
 object AtriumLogger {
 
-  val DEBUG = Option(System.getProperties.get("com.root81.atrium.debug")).map(_.toString).contains("true")
+  val DEBUG = Option(System.getProperties.get("com.root81.atrium.debug")).map(_.toString.trim.toLowerCase).contains("true")
 
   private val DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSSZ"
   private val dateFormatter = new SimpleDateFormat(DATE_FORMAT)

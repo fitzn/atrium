@@ -8,6 +8,8 @@ package com.root81.atrium.ecc
 
 import java.util
 
+import com.root81.atrium.utils.AtriumLogger
+
 // This is a class so that we can test the internal methods more easily
 // since Scala doesn't allow inheritance from objects.
 class HammingCoder {
@@ -22,11 +24,16 @@ class HammingCoder {
    * Network order (high 4 bits are in the first byte, low 4 bits in the second).
    */
   def toHamming84(bytes: Array[Byte]): Array[Byte] = {
-    bytes.flatMap(b => {
+    AtriumLogger.debug(s"HammingCoder: Encoding ${bytes.length} bytes")
+
+    val codedBytes = bytes.flatMap(b => {
       val (highBits, lowBits) = (((b & 0xf0) >> 4).toByte, (b & 0xf).toByte)
 
       List(codewordBy4Bits(highBits), codewordBy4Bits(lowBits))
     })
+
+    AtriumLogger.debug(s"HammingCoder: Encoded ${bytes.length} input bytes to ${codedBytes.length} output bytes")
+    codedBytes
   }
 
   def fromHamming84(bytes: Array[Byte], withCorrection: Boolean = false): Array[Byte] = {
@@ -34,9 +41,14 @@ class HammingCoder {
       throw new InvalidLengthException("There must be an even number of encoded bytes: " + bytes.length)
     }
 
-    bytes.grouped(2).map(pair =>
+    AtriumLogger.debug(s"HammingCoder: Decoding ${bytes.length} bytes, withCorrection=$withCorrection")
+
+    val decodedBytes = bytes.grouped(2).map(pair =>
       decodeBytePair(pair.head, pair.last, withCorrection)
     ).toArray
+
+    AtriumLogger.debug(s"HammingCoder: Decoded ${bytes.length} input bytes to ${decodedBytes.length} output bytes")
+    decodedBytes
   }
 
   //
@@ -58,17 +70,23 @@ class HammingCoder {
    */
   protected def decodeByte(byte: Byte, withCorrection: Boolean): Byte = {
     // If it's a known codeword, the lookup succeeds and we return the 4-bits byte.
-    byteByCodeword.getOrElse(byte, {
+    val decodedByte = byteByCodeword.getOrElse(byte, {
       val codewords = byteByCodeword.keys.toList
       val (code, distance) = codewords.map(code => (code, getHammingDistance(byte, code))).minBy(_._2)
 
       // If correction is desired and distance is 1, use the closest code. Otherwise, throw.
       if (withCorrection && distance == 1) {
+
+        AtriumLogger.debug(s"HammingCoder: correcting '${byte.toInt}' -> '${code.toInt}'.")
+
         byteByCodeword(code)    // Safe since the value came from the map's keys.
       } else {
         throw ByteCorruptionException(distance, s"Coded byte $byte was corrupted by $distance bits")
       }
     })
+
+    AtriumLogger.debug(s"HammingCoder: Decoded '${byte.toInt}' to '${decodedByte.toInt}'")
+    decodedByte
   }
 
   protected def getHammingDistance(b0: Byte, b1: Byte): Int = {

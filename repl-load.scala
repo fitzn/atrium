@@ -17,7 +17,7 @@ AtriumLogger.info("Loading Atrium...")
 // Object definitions
 val hamming = new HammingCoder()
 
-val images = ImageLoader.loadImageDirectory("src/test/resources/test-images/")
+val images = ImageLoader.loadImageDirectory("src/test/resources/images/")
 val filename = "keyboard.jpg"
 val image = images(filename)
 AtriumLogger.info(s"Loaded $filename into 'image'")

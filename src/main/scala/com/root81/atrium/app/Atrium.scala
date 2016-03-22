@@ -6,8 +6,8 @@
 
 package com.root81.atrium.app
 
-import com.root81.atrium.core.{AtriumSteganography, DCT, JPEGQuantization}
-import com.root81.atrium.utils.{ImageConversions, ImageLoader}
+import com.root81.atrium.core._
+import com.root81.atrium.utils.{AtriumLogger, ImageConversions, ImageLoader}
 
 sealed trait AtriumArgs
 case class DecodeArgs(path: String, quality: Int) extends AtriumArgs
@@ -15,7 +15,7 @@ case class EncodeArgs(inPath: String, quality: Int, message: String, outPath: Op
 case class ExitArgs(code: Int, errMsg: Option[String] = None) extends AtriumArgs
 
 object Atrium {
-  import AtriumHelper._
+  import AtriumCore._
 
   private val COMMAND_ENCODE = "encode"
   private val COMMAND_DECODE = "decode"
@@ -49,14 +49,18 @@ object Atrium {
   //
 
   protected def handleEncode(args: EncodeArgs): Unit = {
+    AtriumLogger.debug("Atrium: ENCODE")
 
     val codedBytes = wrapUserMessage(args.message)
+    var bytestoEmbed = codedBytes.toList
 
-    val inputFile = getExistingJPGFile(args.inPath)
-    val inputImage = ImageLoader.loadImageFile(inputFile)
+    AtriumLogger.debug(s"Atrium: ${args.message.length} message characters resulted in ${bytestoEmbed.size} encoded bytes")
+
+    val inputImage = ImageLoader.loadJPGImage(args.inPath)
     val regionedImage = safeGetRegionedImage(inputImage, Some(codedBytes.length))
 
-    var bytestoEmbed = codedBytes.toList
+    AtriumLogger.debug(s"Atrium: RegionedImage (${regionedImage.width}x${regionedImage.height}) ${regionedImage.regions.size} regions")
+
     val codedRGBRegions = regionedImage.regions.map(rgbRegion => {
 
       if (bytestoEmbed.nonEmpty) {
@@ -85,18 +89,25 @@ object Atrium {
     // Write out the encoded regions into a new image.
     val regionedImageWithBytes = regionedImage.copy(regions = codedRGBRegions)
     val outputImage = ImageConversions.toBufferedImage(regionedImageWithBytes)
-    val outputPath = args.outPath.getOrElse(makeAtriumOutputFilename(args.inPath))
+    val outputPath = args.outPath.getOrElse(fromInputPathToOutputPath(args.inPath))
 
     ImageLoader.writeImageToJPGFile(outputPath, outputImage, args.quality)
+
+    AtriumLogger.debug(s"Atrium: Encoded image written to: $outputPath")
   }
 
   protected def handleDecode(args: DecodeArgs): Unit = {
+    AtriumLogger.debug("Atrium: DECODE")
 
-    val inputFile = getExistingJPGFile(args.path)
-    val inputImage = ImageLoader.loadImageFile(inputFile)
+    val inputImage = ImageLoader.loadJPGImage(args.path)
     val regionedImage = safeGetRegionedImage(inputImage)
 
+    AtriumLogger.debug(s"Atrium: RegionedImage (${regionedImage.width}x${regionedImage.height}) ${regionedImage.regions.size} regions")
+
     val message = decodeUserMessageFromRegions(regionedImage.regions, args.quality)
+
+    AtriumLogger.debug(s"Atrium: decoded ${message.length} message characters")
+
     println(message)
   }
 
