@@ -6,7 +6,7 @@
 
 package com.root81.atrium.utils
 
-import com.root81.atrium.core.{DCTRegion, QuantizedMatrix, RGBRegion, YCCRegion}
+import com.root81.atrium.core._
 
 object AtriumOut {
 
@@ -50,15 +50,37 @@ object AtriumOut {
 
   def print(matrix: QuantizedMatrix): Unit = {
     println(s"QuantizedMatrix quality: ${matrix.quality}")
-    matrix.coefficients.foreach(row => {
-      val formattedRow = row.map(x => ("   " + x.toString).takeRight(4)).mkString(" ")
-      println(formattedRow)
-    })
+    print(matrix.coefficients)
   }
 
-  def print(matrix: Vector[Vector[Double]]): Unit = {
+  def print(tables: JPEGQuantizationTables): Unit = {
+    if (tables.tableLuminance.isEmpty && tables.tableChrominance.isEmpty && tables.table2.isEmpty && tables.table3.isEmpty) {
+      println("(empty quantization tables)")
+    } else {
+      if (tables.tableLuminance.nonEmpty) {
+        println("Table Luminance")
+        print(tables.tableLuminance.grouped(8).toVector)
+      }
+      if (tables.tableChrominance.nonEmpty) {
+        println("Table Chrominance")
+        print(tables.tableChrominance.grouped(8).toVector)
+      }
+      if (tables.table2.nonEmpty) {
+        println("Table2")
+        print(tables.table2.grouped(8).toVector)
+      }
+      if (tables.table3.nonEmpty) {
+        println("Table3")
+        print(tables.table3.grouped(8).toVector)
+      }
+    }
+  }
+
+  def print(matrix: Vector[Vector[Int]]): Unit = {
+    val widest = matrix.flatten.toList.map(_.toString.length).sorted.last
+    val prefix = " " * widest
     matrix.foreach(row => {
-      val formattedRow = row.map(d => "(%.3f)".format(d)).mkString(" ")
+      val formattedRow = row.map(x => (prefix + x.toString).takeRight(widest + 1)).mkString("")
       println(formattedRow)
     })
   }

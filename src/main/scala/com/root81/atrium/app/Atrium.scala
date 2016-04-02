@@ -7,11 +7,14 @@
 package com.root81.atrium.app
 
 import com.root81.atrium.core._
-import com.root81.atrium.utils.{AtriumLogger, ImageConversions, ImageLoader}
+import com.root81.atrium.utils.{AtriumLogger, AtriumOut, ImageConversions, ImageLoader}
+import java.io.File
+import javax.imageio.ImageIO
 
 sealed trait AtriumArgs
 case class DecodeArgs(path: String, quality: Int) extends AtriumArgs
 case class EncodeArgs(inPath: String, quality: Int, message: String, outPath: Option[String] = None) extends AtriumArgs
+case class InfoArgs(path: String) extends AtriumArgs
 case class ExitArgs(code: Int, errMsg: Option[String] = None) extends AtriumArgs
 
 object Atrium {
@@ -19,6 +22,7 @@ object Atrium {
 
   private val COMMAND_ENCODE = "encode"
   private val COMMAND_DECODE = "decode"
+  private val COMMAND_INFO = "info"
 
   private val OPT_ENCODE_OUTPUT = "--out"
 
@@ -40,6 +44,7 @@ object Atrium {
     validateArgs(args) match {
       case args: EncodeArgs => handleEncode(args)
       case args: DecodeArgs => handleDecode(args)
+      case args: InfoArgs => handleInfo(args)
       case ExitArgs(code, errMsg) => exit(code, errMsg)
     }
   }
@@ -111,6 +116,23 @@ object Atrium {
     println(message)
   }
 
+  protected def handleInfo(args: InfoArgs): Unit = {
+    AtriumLogger.debug("Atrium: INFO")
+
+    val inputImage = ImageLoader.loadJPGImage(args.path)
+    val (width, height) = (inputImage.getWidth, inputImage.getHeight)
+
+    val inputImageStream = ImageIO.createImageInputStream(new File(args.path))
+    val dqtSegments = JPEGReader.readDQTSegmentsFromJPEG(inputImageStream)
+    val quantizationTables = JPEGReader.getQuantizationTables(dqtSegments)
+    val quality = JPEGReader.getJPEGQuality(quantizationTables)
+
+    println(s"Path: ${args.path}")
+    println(s"Size: ${width}x$height")
+    println(s"Quality: $quality")
+    AtriumOut.print(quantizationTables)
+  }
+
   //
   // Arguments parser
   //
@@ -129,6 +151,12 @@ object Atrium {
         args.drop(1).toList match {
           case path :: quality :: Nil => DecodeArgs(path, quality.toInt)
           case _ => ExitArgs(1, Some(s"atrium: 'decode' requires a jpg image path and a quality on [0, 100]."))
+        }
+      }
+      case Some(COMMAND_INFO) => {
+        args.drop(1).toList match {
+          case path :: Nil => InfoArgs(path)
+          case _ => ExitArgs(1, Some(s"atrium: 'info' requires a jpg image path."))
         }
       }
       case Some(x) if !OPTS_HELP.contains(x) => {

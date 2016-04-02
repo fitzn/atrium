@@ -28,7 +28,7 @@ object ImageConversions {
     }
 
     if (image.getType != BufferedImage.TYPE_3BYTE_BGR) {
-      throw new UnsupportedOperationException(s"Image Type (${image.getType}) is not supported. RGB type (${BufferedImage.TYPE_INT_RGB}) only.")
+      throw new UnsupportedOperationException(s"Image Type (${image.getType}) is not supported. RGB type (${BufferedImage.TYPE_3BYTE_BGR}) only.")
     }
 
     val rowRegions = (0 until height).grouped(regionHeight).map(_.toList).toList

@@ -10,6 +10,8 @@ package com.root81.atrium.core
 // Exceptions
 //
 
+case class FailedQualityException(msg: String) extends Exception(msg)
+case class InvalidJPEGFormatException(msg: String) extends Exception(msg)
 case class UnsupportedDimensionsException(width: Int, height: Int, msg: String) extends Exception(msg)
 
 //
@@ -51,4 +53,15 @@ case class RegionedImage(
   width: Int,
   height: Int,
   regions: List[RGBRegion]
+)
+
+case class DQTSegment(
+  data: Array[Byte]
+)
+
+case class JPEGQuantizationTables(
+  tableLuminance: Vector[Int],
+  tableChrominance: Vector[Int],
+  table2: Vector[Int],
+  table3: Vector[Int]
 )
