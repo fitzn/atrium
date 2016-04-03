@@ -10,6 +10,7 @@ package com.root81.atrium.core
 // Exceptions
 //
 
+case class ImageWriteException(msg: String) extends Exception(msg)
 case class FailedQualityException(msg: String) extends Exception(msg)
 case class InvalidJPEGFormatException(msg: String) extends Exception(msg)
 case class UnsupportedDimensionsException(width: Int, height: Int, msg: String) extends Exception(msg)

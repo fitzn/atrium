@@ -6,6 +6,7 @@
 
 package com.root81.atrium.utils
 
+import com.root81.atrium.core.ImageWriteException
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.{IIOImage, ImageIO, ImageWriteParam}
@@ -44,6 +45,11 @@ object ImageLoader {
 
   def writeImageToJPGFile(path: String, image: BufferedImage, quality: Int): Unit = {
     require(0 <= quality && quality <= 100, "JPG quality must be between 0 and 100")
+
+    val outputFile = new File(path)
+    if (outputFile.exists() && !outputFile.delete()) {
+      throw new ImageWriteException(s"ImageLoader: could not delete pre-existing file $path")
+    }
 
     val outputStream =  ImageIO.createImageOutputStream(new File(path))
     val jpgWriters = ImageIO.getImageWritersByFormatName("jpg")
