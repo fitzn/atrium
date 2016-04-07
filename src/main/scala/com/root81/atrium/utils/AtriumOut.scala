@@ -42,8 +42,9 @@ object AtriumOut {
 
   def print(region: DCTRegion): Unit = {
     // For now, just print the first channel, channel0.
+    println(s"DCTRegion: (${region.width}x${region.height})")
     region.channel0.foreach(row => {
-      val formattedRow = row.map(x => "(%.3f)".format(x)).mkString(" ")
+      val formattedRow = row.map(x => "%.3f".format(x)).mkString(" ")
       println(formattedRow)
     })
   }
