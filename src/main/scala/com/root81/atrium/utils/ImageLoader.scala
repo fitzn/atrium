@@ -8,7 +8,8 @@ package com.root81.atrium.utils
 
 import com.root81.atrium.core.ImageWriteException
 import java.awt.image.BufferedImage
-import java.io.File
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File}
+import javax.imageio.stream.ImageOutputStream
 import javax.imageio.{IIOImage, ImageIO, ImageWriteParam}
 
 object ImageLoader {
@@ -51,9 +52,26 @@ object ImageLoader {
       throw new ImageWriteException(s"ImageLoader: could not delete pre-existing file $path")
     }
 
-    val outputStream =  ImageIO.createImageOutputStream(new File(path))
-    val jpgWriters = ImageIO.getImageWritersByFormatName("jpg")
+    val outputStream = ImageIO.createImageOutputStream(outputFile)
+    writeJPGImage(image, quality, outputStream)
+  }
 
+  def writeImageToNewImageJPG(image: BufferedImage, quality: Int): BufferedImage = {
+    require(0 <= quality && quality <= 100, "JPG quality must be between 0 and 100")
+
+    // Write the image into the byte array stream.
+    val byteArrayOutputStream = new ByteArrayOutputStream()
+    val imageOutputStream = ImageIO.createImageOutputStream(byteArrayOutputStream)
+    writeJPGImage(image, quality, imageOutputStream)
+
+    // Read the image from the byte array into a new image.
+    val bytes = byteArrayOutputStream.toByteArray
+    val byteArrayInputStream = new ByteArrayInputStream(bytes)
+    ImageIO.read(byteArrayInputStream)
+  }
+
+  protected def writeJPGImage(image: BufferedImage, quality: Int, outputStream: ImageOutputStream): Unit = {
+    val jpgWriters = ImageIO.getImageWritersByFormatName("jpg")
     if (!jpgWriters.hasNext) {
       throw new RuntimeException("Could not find a JPG ImageWriter on this system")
     }
