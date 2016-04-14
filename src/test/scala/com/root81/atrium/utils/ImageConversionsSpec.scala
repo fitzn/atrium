@@ -19,8 +19,11 @@ import org.scalatest.junit.JUnitRunner
 class ImageConversionsSpec extends FlatSpec {
 
   private val TEST_IMAGE_PATH = "src/test/resources/images/keyboard.jpg"
-  private val TEST_REGION_WIDTH = 8
-  private val TEST_REGION_HEIGHT = 8
+  private val TEST_REGION_DEFAULT_DIMENSION = 8
+  private val TEST_REGION_WIDTH_ODD = 7
+  private val TEST_REGION_HEIGHT_ODD = 3
+  private val inputImage = ImageIO.read(new File(TEST_IMAGE_PATH))
+  private val inputImageRGB = getRGB(inputImage)
 
   val TEST_RED = 234
   val TEST_GREEN = 101
@@ -49,25 +52,39 @@ class ImageConversionsSpec extends FlatSpec {
       ImageConversions.getPixel(TEST_RED + i, TEST_GREEN + i, TEST_BLUE + i)
     }
 
-    val rgbRegionInput = RGBRegion(WIDTH, HEIGHT, pixels)
+    val rgbRegionInput = RGBRegion(0, 0, WIDTH, HEIGHT, pixels)
     val yccRegion = ImageConversions.toYCCRegion(rgbRegionInput)
     val rgbRegionOutput = ImageConversions.toRGBRegion(yccRegion)
 
     assert(rgbRegionInput == rgbRegionOutput)
   }
 
-  it should "convert an image to a RegionedImage and back again without modifying the data" in {
-    val inputImage = ImageIO.read(new File(TEST_IMAGE_PATH))
-    assert(inputImage.getWidth % TEST_REGION_WIDTH == 0)
-    assert(inputImage.getHeight % TEST_REGION_HEIGHT == 0)
-
-    val inputRGB = getRGB(inputImage)
-    val regionedImage = ImageConversions.toRegionedImage(inputImage, TEST_REGION_WIDTH, TEST_REGION_HEIGHT)
+  it should "convert an image to a RegionedImage and back again without modifying the data for in-order regions" in {
+    val regionedImage = ImageConversions.toRegionedImage(inputImage, TEST_REGION_DEFAULT_DIMENSION, TEST_REGION_DEFAULT_DIMENSION)
 
     val outputImage = ImageConversions.toBufferedImage(regionedImage)
     val outputRGB = getRGB(outputImage)
 
-    assert(inputRGB == outputRGB)
+    assert(inputImageRGB == outputRGB)
+  }
+
+  it should "convert an image to a RegionedImage and back again without modifying the data for out-of-order regions" in {
+    val regionedImage = ImageConversions.toRegionedImage(inputImage, TEST_REGION_DEFAULT_DIMENSION, TEST_REGION_DEFAULT_DIMENSION)
+
+    val shuffledRegions = regionedImage.regions.grouped(2).toList.flatMap(_.reverse)
+    val outputImage = ImageConversions.toBufferedImage(regionedImage.copy(regions = shuffledRegions))
+    val outputRGB = getRGB(outputImage)
+
+    assert(inputImageRGB == outputRGB)
+  }
+
+  it should "handle an image with dimensions that are not a multiple of the regions" in {
+    val regionedImage = ImageConversions.toRegionedImage(inputImage, TEST_REGION_WIDTH_ODD, TEST_REGION_HEIGHT_ODD)
+
+    val outputImage = ImageConversions.toBufferedImage(regionedImage)
+    val outputRGB = getRGB(outputImage)
+
+    assert(inputImageRGB == outputRGB)
   }
 
   //

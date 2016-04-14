@@ -70,7 +70,7 @@ class DCTSpec extends FlatSpec {
       YCCPixel(31.2599, 130.6748, 125.6748),
       YCCPixel(27.8469, 130.3435, 125.2561)
     )
-    val yccRegionInput = YCCRegion(2, 2, yccPixels)
+    val yccRegionInput = YCCRegion(0, 0, 2, 2, yccPixels)
 
     val dctRegion = DCT.applyRegionDCT(yccRegionInput)
     val yccRegionOutput = DCT.unapplyRegionDCT(dctRegion)

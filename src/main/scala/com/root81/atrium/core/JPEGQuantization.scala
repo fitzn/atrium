@@ -6,40 +6,29 @@
 
 package com.root81.atrium.core
 
+import javax.imageio.plugins.jpeg.JPEGQTable
+
 object JPEGQuantization {
 
   private val DIMENSION = 8
 
-  val JPEG_SPEC_QUANTIZERS_50 = Vector(
-    Vector(  16,  11,  10,  16,  24,  40,  51,  61),
-    Vector(  12,  12,  14,  19,  26,  58,  60,  55),
-    Vector(  14,  13,  16,  24,  40,  57,  69,  56),
-    Vector(  14,  17,  22,  29,  51,  87,  80,  62),
-    Vector(  18,  22,  37,  56,  68, 109, 103,  77),
-    Vector(  24,  35,  55,  64,  81, 104, 113,  92),
-    Vector(  49,  64,  78,  87, 103, 121, 120, 101),
-    Vector(  72,  92,  95,  98, 112, 100, 103,  99)
-  )
+  def getJavaLuminanceQuantizers(scaleFactor: Float): Vector[Vector[Int]] = {
+    JPEGQTable.K1Luminance.getScaledInstance(scaleFactor, true).getTable.grouped(DIMENSION).map(_.toVector).toVector
+  }
 
-  val JAVA_QUANTIZERS_50 = Vector(
-    Vector(  16,  11,  12,  14,  12,  10,  16,  14),
-    Vector(  13,  14,  18,  17,  16,  19,  24,  40),
-    Vector(  26,  24,  22,  22,  24,  49,  35,  37),
-    Vector(  29,  40,  58,  51,  61,  60,  57,  51),
-    Vector(  56,  55,  64,  72,  92,  78,  64,  68),
-    Vector(  87,  69,  55,  56,  80, 109,  81,  87),
-    Vector(  95,  98, 103, 104, 103,  62,  77, 113),
-    Vector( 121, 112, 100, 120,  92, 101, 103,  99)
-  )
+  def getJavaChrominanceQuantizers(scaleFactor: Float): Vector[Vector[Int]] = {
+    JPEGQTable.K2Chrominance.getScaledInstance(scaleFactor, true).getTable.grouped(DIMENSION).map(_.toVector).toVector
+  }
 
   def quantize(channel: Vector[Vector[Double]], quality: Int): QuantizedMatrix = {
     require(channel.size == DIMENSION && channel.head.size == DIMENSION, s"quantize() only works on ${DIMENSION}x$DIMENSION channels")
 
     val scaleFactor = getScaleFactor(quality)
+    val quantizers = getJavaLuminanceQuantizers(scaleFactor)
 
-    val coefficients = channel.zip(JAVA_QUANTIZERS_50).map {
+    val coefficients = channel.zip(quantizers).map {
       case (dctRow, quantRow) => dctRow.zip(quantRow).map {
-        case (coef, quant) => (coef / (quant * scaleFactor)).round.toInt
+        case (coef, quant) => (coef / quant).round.toInt
       }
     }
 
@@ -53,10 +42,11 @@ object JPEGQuantization {
     )
 
     val scaleFactor = getScaleFactor(matrix.quality)
+    val quantizers = getJavaLuminanceQuantizers(scaleFactor)
 
-    matrix.coefficients.zip(JAVA_QUANTIZERS_50).map {
+    matrix.coefficients.zip(quantizers).map {
       case (coefRow, quantRow) => coefRow.zip(quantRow).map {
-        case (coef, quant) => coef * quant * scaleFactor
+        case (coef, quant) => coef * quant.toDouble
       }
     }
   }
@@ -65,13 +55,13 @@ object JPEGQuantization {
   // Internal helpers
   //
 
-  protected def getScaleFactor(quality: Int): Double = {
+  protected def getScaleFactor(quality: Int): Float = {
     require(quality >= 0 && quality <= 100, s"Illegal quality factor: ($quality) must be between 0 and 100.")
 
     if (quality < 50) {
-      50D / quality
+      50 / quality.toFloat
     } else {
-      2 - (quality / 50D)
+      2 - (quality.toFloat / 50)
     }
   }
 }

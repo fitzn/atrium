@@ -16,14 +16,14 @@ object AtriumSteganography {
     * We use these cells based on the zig-zag ordering of the JPEG standard and the way it uses the DCT.
     */
   val BIT_CELLS = Vector(
-    (2, 0), // highest-order bit
-    (1, 1),
-    (0, 2),
-    (0, 3),
-    (1, 2),
-    (2, 1),
+    (1, 1), // highest-order bit
+    (2, 0),
     (3, 0),
-    (4, 0)  // lowest-order bit
+    (2, 1),
+    (1, 2),
+    (0, 3),
+    (0, 4),
+    (1, 3)  // lowest-order bit
   )
 
   def encode(byte: Byte, matrix: QuantizedMatrix): QuantizedMatrix = {

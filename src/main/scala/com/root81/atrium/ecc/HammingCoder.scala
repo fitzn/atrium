@@ -6,9 +6,8 @@
 
 package com.root81.atrium.ecc
 
-import java.util
-
 import com.root81.atrium.utils.AtriumLogger
+import java.util
 
 // This is a class so that we can test the internal methods more easily
 // since Scala doesn't allow inheritance from objects.
@@ -24,7 +23,7 @@ class HammingCoder {
    * Network order (high 4 bits are in the first byte, low 4 bits in the second).
    */
   def toHamming84(bytes: Array[Byte]): Array[Byte] = {
-    AtriumLogger.debug(s"HammingCoder: Encoding ${bytes.length} bytes")
+    AtriumLogger.debug(s"HammingCoder: Encoding ${bytes.length} input bytes")
 
     val codedBytes = bytes.flatMap(b => {
       val (highBits, lowBits) = (((b & 0xf0) >> 4).toByte, (b & 0xf).toByte)
@@ -47,7 +46,7 @@ class HammingCoder {
       decodeBytePair(pair.head, pair.last, withCorrection)
     ).toArray
 
-    AtriumLogger.debug(s"HammingCoder: Decoded ${bytes.length} input bytes to ${decodedBytes.length} output bytes")
+    AtriumLogger.debug(s"HammingCoder: Decoded ${bytes.length} input bytes to ${decodedBytes.length} output bytes - '${new String(decodedBytes, "UTF-8")}'")
     decodedBytes
   }
 

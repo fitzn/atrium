@@ -84,10 +84,15 @@ object JPEGReader {
        64,     0
   )
 
+  def getJPEGInfo(inputImageStream: ImageInputStream): JPEGInfo = {
+    val dqtSegments = JPEGReader.readDQTSegmentsFromJPEG(inputImageStream)
+    val quantizationTables = JPEGReader.getQuantizationTables(dqtSegments)
+    val quality = JPEGReader.getJPEGQuality(quantizationTables)
+    JPEGInfo(quality, quantizationTables)
+  }
+
   def getJPEGQuality(tables: JPEGQuantizationTables): Int = {
-    if (tables.tableLuminance.isEmpty) {
-      throw new IllegalArgumentException(s"JPEGReader: cannot read JPEGInformation; tables has no 'tableLuminance' value (${tables.toString})")
-    }
+    require(tables.tableLuminance.nonEmpty, s"JPEGReader: cannot read JPEGInformation; tables has no 'tableLuminance' value (${tables.toString})")
 
     val quantizersSum = tables.tableLuminance.sum + tables.tableChrominance.sum + tables.table2.sum + tables.table3.sum
 
@@ -119,11 +124,8 @@ object JPEGReader {
   }
 
   def getQuantizationTables(segments: List[DQTSegment]): JPEGQuantizationTables = {
-    if (segments.isEmpty) {
-      throw new IllegalArgumentException("JPEGReader: cannot create JPEGQuantTables without any segments")
-    } else if (segments.size > 4) {
-      throw new IllegalArgumentException(s"JPEGReader: too many DQTSegments ${segments.size} to create JPEGQuantTables")
-    }
+    require(segments.nonEmpty, "JPEGReader: cannot create JPEGQuantTables without any segments")
+    require(segments.size <= 4, s"JPEGReader: too many DQTSegments ${segments.size} to create JPEGQuantTables")
 
     AtriumLogger.debug(s"JPEGReader: producing quantization tables for ${segments.size} segments")
 

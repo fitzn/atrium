@@ -9,7 +9,6 @@ package com.root81.atrium.core
 import com.root81.atrium.ecc.HammingCoder
 import com.root81.atrium.utils.ImageConversions
 import java.awt.image.BufferedImage
-import java.io.File
 
 object AtriumCore {
 
@@ -19,111 +18,113 @@ object AtriumCore {
 
   private val hamming = new HammingCoder()
 
-  def safeGetRegionedImage(image: BufferedImage, minRegionsNeeded: Option[Int] = None): RegionedImage = {
+  def encodeMessageIntoRegions(regions: List[RGBRegion], message: String, quality: Int): List[RGBRegion] = {
 
-    val tryRegionedImage = try {
-      Some(ImageConversions.toRegionedImage(image, REGION_DIMENSION, REGION_DIMENSION))
-    } catch {
-      case uoe: UnsupportedOperationException => {
-        exit(3, Some(s"atrium: error breaking image into ${REGION_DIMENSION}x$REGION_DIMENSION pixel regions - " + uoe.getMessage))
-        None
+    val codedBytes = encodeMessage(message)
+    var bytesToEmbed = codedBytes.toList
+
+    val numFullRegions = countFullRegions(regions)
+    if (numFullRegions < bytesToEmbed.length) {
+      // Bytes to embed is one to one with a full region.
+      throw ImageTooSmallException(s"Image can carry bytes in $numFullRegions regions but ${bytesToEmbed.length} are needed.")
+    }
+
+    regions.map(rgbRegion => {
+
+      if (bytesToEmbed.nonEmpty) {
+        // We have a byte to encode into this region.
+        val byte = bytesToEmbed.head
+        bytesToEmbed = bytesToEmbed.tail
+        writeByteIntoRegion(byte, rgbRegion, quality)
+      } else {
+        // No more bytes to encode, so just return the region.
+        rgbRegion
       }
-    }
-
-    // If we're here, then the option is defined.
-    val regionedImage = tryRegionedImage.get
-
-    if (minRegionsNeeded.exists(regionedImage.regions.size < _)) {
-      exit(3, Some(s"atrium: image is too small; it has ${regionedImage.regions.size} regions, but the message requires ${minRegionsNeeded.get}."))
-    }
-
-    regionedImage
+    })
   }
 
-  def wrapUserMessage(message: String): Array[Byte] = {
+  def encodeMessage(message: String): Array[Byte] = {
     val userData = message.getBytes(UTF8)
     val controlByte = getUnusedControlByte(userData)
     val messageBytes = Array(controlByte) ++ userData ++ Array(controlByte)
     hamming.toHamming84(messageBytes)
   }
 
-  def decodeUserMessageFromRegions(regions: List[RGBRegion], quality: Int): String = {
+  def getRegionedImage(image: BufferedImage): RegionedImageRGB = {
+    ImageConversions.toRegionedImage(image, REGION_DIMENSION, REGION_DIMENSION)
+  }
+
+  def writeByteIntoRegion(byte: Byte, region: RGBRegion, quality: Int): RGBRegion = {
+    // Drill down to the quantized matrix and embed the byte.
+    val yccRegion = ImageConversions.toYCCRegion(region)
+    val dctRegion = DCT.applyRegionDCT(yccRegion)
+    val quantizedYChannel = JPEGQuantization.quantize(dctRegion.channel0, quality)
+    val channelWithByte = AtriumSteganography.encode(byte, quantizedYChannel)
+
+    // Reverse the process back to an RGBRegion.
+    val yMatrixWithByte = JPEGQuantization.unquantize(channelWithByte)
+    val dctRegionWithByte = dctRegion.copy(channel0 = yMatrixWithByte)
+    val yccRegionWithByte = DCT.unapplyRegionDCT(dctRegionWithByte)
+    ImageConversions.toRGBRegion(yccRegionWithByte)
+  }
+
+  def decodeMessageFromRegions(regions: List[RGBRegion], quality: Int): String = {
 
     // Each original data byte becomes 2 coded bytes after Hamming Coding.
     // Thus, with each region being one coded byte, we take the regions in pairs to decode a single data byte.
-    val regionPairs = regions.grouped(2).toList
-
     // With 2 control data bytes, we need at least 3 regionPairs for any user data at all.
+    val regionPairs = regions.grouped(2).toList
     if (regionPairs.size < 3) {
-      exit(3, Some(s"atrium: message unrecoverable due to lack of encoded bytes"))
+      throw new UndecodableImageException("message unrecoverable due to lack of encoded bytes")
     }
 
-    // First data byte is the control byte.
+    // First data byte (i.e., first two coded bytes) is the control byte.
     val controlRegionPair = regionPairs.head
     val controlBytePair = Array(
-      getByteFromRegion(controlRegionPair.head, quality),
-      getByteFromRegion(controlRegionPair.last, quality)
+      extractByteFromRegion(controlRegionPair.head, quality),
+      extractByteFromRegion(controlRegionPair.last, quality)
     )
 
-    val tryControlByte = try {
-      Some(hamming.fromHamming84(controlBytePair, withCorrection = true))
-    } catch {
-      case e: Exception => {
-        exit(3, Some("atrium: decoding failed due to corrupted image - " + e.getMessage))
-        None
-      }
-    }
-
-    // If we're here, then we have a single byte in the Array.
-    val controlByte = tryControlByte.get.head
+    val controlByte = hamming.fromHamming84(controlBytePair, withCorrection = true).head
 
     // Stream the remaining pairs so that we only decode regions until the end of the message, as indicated by seeing the control byte.
     val decodedBytes = regionPairs.drop(1).toStream.map(regionPair => {
-      Array(getByteFromRegion(regionPair.head, quality), getByteFromRegion(regionPair.last, quality))
+      Array(extractByteFromRegion(regionPair.head, quality), extractByteFromRegion(regionPair.last, quality))
     }).map(bytePair => {
-      val tryByte = try {
-        Some(hamming.fromHamming84(bytePair, withCorrection = true))
-      } catch {
-        case e: Exception => {
-          exit(3, Some("atrium: decoding failed due to corrupted image - " + e.getMessage))
-          None
-        }
-      }
-      tryByte.get.head
+      hamming.fromHamming84(bytePair, withCorrection = true).head
     }).takeWhile(_ != controlByte).toArray
 
     new String(decodedBytes, UTF8)
   }
 
-  def getByteFromRegion(region: RGBRegion, quality: Int): Byte = {
+  def extractByteFromRegion(region: RGBRegion, quality: Int): Byte = {
     val yccRegion = ImageConversions.toYCCRegion(region)
     val dctRegion = DCT.applyRegionDCT(yccRegion)
     val quantizedYChannel = JPEGQuantization.quantize(dctRegion.channel0, quality)
     AtriumSteganography.decode(quantizedYChannel)
   }
 
-  def getUnusedControlByte(data: Array[Byte]): Byte = {
-    // Walk down from 255 to 0 and return the first byte value that does not appear in the application's data.
-    val uniqueDataBytes = data.toSet
-    val availableValue = (0 to 255).reverse.find(x => !uniqueDataBytes.contains(x.toByte))
-
-    if (availableValue.isEmpty) {
-      // Note: We could do something like COBS encoding in this case.
-      exit(2, Some("atrium: input data cannot use all 256 byte values since 1 byte is needed as the control byte"))
-    }
-
-    availableValue.get.toByte
-  }
-
-  def fromInputPathToOutputPath(path: String): String = {
+  def getDefaultOutputPathFromInputPath(path: String): String = {
     val lastDot = path.lastIndexOf('.')
     val prefix = path.substring(0, lastDot)
     val suffix = path.substring(lastDot)
     prefix + DEFAULT_ENCODE_FILE_SUFFIX + suffix
   }
 
-  def exit(code: Int, message: Option[String]): Unit = {
-    message.foreach(System.err.println)
-    System.exit(code)
+  //
+  // Internal helpers
+  //
+
+  protected def getUnusedControlByte(data: Array[Byte]): Byte = {
+    // Walk down from 255 to 0 and return the first byte value that does not appear in the application's data.
+    val uniqueDataBytes = data.toSet
+    (0 to 255).map(_.toByte).reverse.find(!uniqueDataBytes.contains(_)).getOrElse {
+      // Note: We could do something like COBS encoding in this case.
+      throw new MissingControlByteException("input data uses all 256 byte values, leaving no available control byte")
+    }
+  }
+
+  protected def countFullRegions(regions: List[RGBRegion]): Int = {
+    regions.count(region => region.width == REGION_DIMENSION && region.height == REGION_DIMENSION)
   }
 }

@@ -10,10 +10,12 @@ package com.root81.atrium.core
 // Exceptions
 //
 
-case class ImageWriteException(msg: String) extends Exception(msg)
 case class FailedQualityException(msg: String) extends Exception(msg)
+case class ImageTooSmallException(msg: String) extends Exception(msg)
+case class ImageWriteException(msg: String) extends Exception(msg)
 case class InvalidJPEGFormatException(msg: String) extends Exception(msg)
-case class UnsupportedDimensionsException(width: Int, height: Int, msg: String) extends Exception(msg)
+case class MissingControlByteException(msg: String) extends Exception(msg)
+case class UndecodableImageException(msg: String) extends Exception(msg)
 
 //
 // Data Types
@@ -25,6 +27,8 @@ case class QuantizedMatrix(
 )
 
 case class DCTRegion(
+  topLeftX: Int,
+  topLeftY: Int,
   width: Int,
   height: Int,
   channel0: Vector[Vector[Double]],
@@ -33,12 +37,16 @@ case class DCTRegion(
 )
 
 case class RGBRegion(
+  topLeftX: Int,
+  topLeftY: Int,
   width: Int,
   height: Int,
   pixels: List[Int]
 )
 
 case class YCCRegion(
+  topLeftX: Int,
+  topLeftY: Int,
   width: Int,
   height: Int,
   pixels: List[YCCPixel]
@@ -50,14 +58,23 @@ case class YCCPixel(
   cr: Double
 )
 
-case class RegionedImage(
+case class RegionedImageRGB(
   width: Int,
   height: Int,
   regions: List[RGBRegion]
-)
+) {
+  override def toString: String = {
+    s"RegionedImage: (${width}x$height) ${regions.size} regions"
+  }
+}
 
 case class DQTSegment(
   data: Array[Byte]
+)
+
+case class JPEGInfo(
+  quality: Int,
+  quantizationTables: JPEGQuantizationTables
 )
 
 case class JPEGQuantizationTables(

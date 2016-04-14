@@ -16,7 +16,7 @@ object ImageLoader {
 
   def loadJPGImage(path: String): BufferedImage = {
     if (!path.toLowerCase.endsWith(".jpg")) {
-      throw new IllegalArgumentException(s"ImageLoader - file path must end in .jpg: $path")
+      throw new IllegalArgumentException(s"ImageLoader: file path must end in .jpg: $path")
     }
 
     loadImage(path)
@@ -26,7 +26,7 @@ object ImageLoader {
     val file = new File(path)
 
     if (!file.exists()) {
-      throw new IllegalArgumentException(s"ImageLoader - file path not found: $path")
+      throw new IllegalArgumentException(s"ImageLoader: file path not found: $path")
     }
 
     loadImageFile(file)

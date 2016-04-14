@@ -7,7 +7,7 @@
 package com.root81.atrium.app
 
 import com.root81.atrium.core._
-import com.root81.atrium.utils.{AtriumLogger, AtriumOut, ImageConversions, ImageLoader}
+import com.root81.atrium.utils._
 import java.io.File
 import javax.imageio.ImageIO
 
@@ -36,12 +36,13 @@ object Atrium {
       |Commands:
       |\tatrium $COMMAND_ENCODE [--out <output file>] <jpeg file> <quality> <message>
       |\tatrium $COMMAND_DECODE <jpeg file> <quality>
+      |\tatrium $COMMAND_INFO <jpeg file>
     """.stripMargin
 
   def main(args: Array[String]): Unit = {
 
     // Validate the args and perform the requested action.
-    validateArgs(args) match {
+    getAtriumCommandArgs(args) match {
       case args: EncodeArgs => handleEncode(args)
       case args: DecodeArgs => handleDecode(args)
       case args: InfoArgs => handleInfo(args)
@@ -56,45 +57,18 @@ object Atrium {
   protected def handleEncode(args: EncodeArgs): Unit = {
     AtriumLogger.debug("Atrium: ENCODE")
 
-    val codedBytes = wrapUserMessage(args.message)
-    var bytestoEmbed = codedBytes.toList
-
-    AtriumLogger.debug(s"Atrium: ${args.message.length} message characters resulted in ${bytestoEmbed.size} encoded bytes")
-
     val inputImage = ImageLoader.loadJPGImage(args.inPath)
-    val regionedImage = safeGetRegionedImage(inputImage, Some(codedBytes.length))
+    val regionedImage = getRegionedImage(inputImage)
 
-    AtriumLogger.debug(s"Atrium: RegionedImage (${regionedImage.width}x${regionedImage.height}) ${regionedImage.regions.size} regions")
+    AtriumLogger.debug(s"Atrium: $regionedImage")
+    AtriumLogger.debug(s"Atrium: input message ${args.message.length} characters - '${args.message}'")
 
-    val codedRGBRegions = regionedImage.regions.map(rgbRegion => {
-
-      if (bytestoEmbed.nonEmpty) {
-        // We have a byte to encode into this region.
-        val byte = bytestoEmbed.head
-        bytestoEmbed = bytestoEmbed.tail
-
-        // Drill down to the quantized matrix and embed the byte.
-        val yccRegion = ImageConversions.toYCCRegion(rgbRegion)
-        val dctRegion = DCT.applyRegionDCT(yccRegion)
-        val quantizedYChannel = JPEGQuantization.quantize(dctRegion.channel0, args.quality)
-        val channelWithByte = AtriumSteganography.encode(byte, quantizedYChannel)
-
-        // Reverse the process back to an RGBRegion.
-        val yMatrixWithByte = JPEGQuantization.unquantize(channelWithByte)
-        val dctRegionWithByte = dctRegion.copy(channel0 = yMatrixWithByte)
-        val yccRegionWithByte = DCT.unapplyRegionDCT(dctRegionWithByte)
-        ImageConversions.toRGBRegion(yccRegionWithByte)
-
-      } else {
-        // No more bytes to encode, so just return the region.
-        rgbRegion
-      }
-    })
+    val regionsWithEncodedBytes = encodeMessageIntoRegions(regionedImage.regions, args.message, args.quality)
 
     // Write out the encoded regions into a new image.
-    val regionedImageWithBytes = regionedImage.copy(regions = codedRGBRegions)
+    val regionedImageWithBytes = regionedImage.copy(regions = regionsWithEncodedBytes)
     val outputImage = ImageConversions.toBufferedImage(regionedImageWithBytes)
-    val outputPath = args.outPath.getOrElse(fromInputPathToOutputPath(args.inPath))
+    val outputPath = args.outPath.getOrElse(getDefaultOutputPathFromInputPath(args.inPath))
 
     ImageLoader.writeImageToJPGFile(outputPath, outputImage, args.quality)
 
@@ -105,11 +79,11 @@ object Atrium {
     AtriumLogger.debug("Atrium: DECODE")
 
     val inputImage = ImageLoader.loadJPGImage(args.path)
-    val regionedImage = safeGetRegionedImage(inputImage)
+    val regionedImage = getRegionedImage(inputImage)
 
-    AtriumLogger.debug(s"Atrium: RegionedImage (${regionedImage.width}x${regionedImage.height}) ${regionedImage.regions.size} regions")
+    AtriumLogger.debug(s"Atrium: $regionedImage")
 
-    val message = decodeUserMessageFromRegions(regionedImage.regions, args.quality)
+    val message = decodeMessageFromRegions(regionedImage.regions, args.quality)
 
     AtriumLogger.debug(s"Atrium: decoded ${message.length} message characters")
 
@@ -122,28 +96,34 @@ object Atrium {
     val inputImage = ImageLoader.loadJPGImage(args.path)
     val (width, height) = (inputImage.getWidth, inputImage.getHeight)
 
-    val inputImageStream = ImageIO.createImageInputStream(new File(args.path))
-    val dqtSegments = JPEGReader.readDQTSegmentsFromJPEG(inputImageStream)
-    val quantizationTables = JPEGReader.getQuantizationTables(dqtSegments)
-    val quality = JPEGReader.getJPEGQuality(quantizationTables)
+    val jpegInfo = getJPEGInfoForImagePath(args.path)
 
     println(s"Path: ${args.path}")
     println(s"Size: ${width}x$height")
-    println(s"Quality: $quality")
-    AtriumOut.print(quantizationTables)
+    println(s"Quality: ${jpegInfo.quality}")
+    AtriumOut.print(jpegInfo.quantizationTables)
   }
 
   //
-  // Arguments parser
+  // Utilities
   //
 
-  private def validateArgs(args: Array[String]): AtriumArgs = {
+  protected def getJPEGInfoForImagePath(path: String): JPEGInfo = {
+    val inputImageStream = ImageIO.createImageInputStream(new File(path))
+    JPEGReader.getJPEGInfo(inputImageStream)
+  }
+
+  //
+  // Args methods
+  //
+
+  private def getAtriumCommandArgs(args: Array[String]): AtriumArgs = {
 
     args.headOption match {
       case Some(COMMAND_ENCODE) => {
         args.drop(1).toList match {
           case OPT_ENCODE_OUTPUT :: outputPath :: inputPath :: quality :: message :: Nil => EncodeArgs(inputPath, quality.toInt, message, Some(outputPath))
-          case inputPath :: quality :: phrase :: Nil => EncodeArgs(inputPath, quality.toInt, phrase)
+          case inputPath :: quality :: message :: Nil => EncodeArgs(inputPath, quality.toInt, message)
           case _ => ExitArgs(1, Some(s"atrium: 'encode' requires a jpg image path, a quality on [0, 100], and a message."))
         }
       }
@@ -167,6 +147,11 @@ object Atrium {
         ExitArgs(0)
       }
     }
+  }
+
+  private def exit(code: Int, message: Option[String] = None): Unit = {
+    message.foreach(System.err.println)
+    System.exit(code)
   }
 }
 

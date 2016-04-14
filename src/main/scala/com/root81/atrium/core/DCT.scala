@@ -13,7 +13,7 @@ object DCT {
   def applyRegionDCT(region: YCCRegion): DCTRegion = {
     require(
       region.width * region.height == region.pixels.size,
-      s"Malformed region: width=${region.width} * height=${region.height} should equal pixels=${region.pixels.size}"
+      s"malformed region: width=${region.width} * height=${region.height} should equal pixels=${region.pixels.size}"
     )
 
     require(region.width == region.height, "Atrium DCT only works on square regions")
@@ -24,7 +24,7 @@ object DCT {
     val cbMat = normalizeRangeValues(pixels.map(_.cb))
     val crMat = normalizeRangeValues(pixels.map(_.cr))
 
-    DCTRegion(region.width, region.height, applyDCT(yMat), applyDCT(cbMat), applyDCT(crMat))
+    DCTRegion(region.topLeftX, region.topLeftY, region.width, region.height, applyDCT(yMat), applyDCT(cbMat), applyDCT(crMat))
   }
 
   def unapplyRegionDCT(region: DCTRegion): YCCRegion = {
@@ -51,7 +51,7 @@ object DCT {
       case ((y, cb), cr) => YCCPixel(y, cb, cr)
     }
 
-    YCCRegion(region.width, region.height, pixels.toList)
+    YCCRegion(region.topLeftX, region.topLeftY, region.width, region.height, pixels.toList)
   }
 
   def applyDCT(matrix: Vector[Vector[Double]]): Vector[Vector[Double]] = {
