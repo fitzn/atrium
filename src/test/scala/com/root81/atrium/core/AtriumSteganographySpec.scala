@@ -14,7 +14,9 @@ import org.scalatest.junit.JUnitRunner
 class AtriumSteganographySpec extends FlatSpec {
 
   private val INDICES = (0 to 7).toVector
-  private val BIT_CELLS_SET = AtriumSteganography.BIT_CELLS.toSet
+  private val ENCODE_INDEX_START = 4
+  private val BIT_CELLS_XY = AtriumSteganography.getBitCellsXY(ENCODE_INDEX_START)
+  private val BIT_CELLS_XY_SET = BIT_CELLS_XY.toSet
 
   private val EXAMPLE_MATRIX = QuantizedMatrix(
     quality = 75,
@@ -48,22 +50,23 @@ class AtriumSteganographySpec extends FlatSpec {
 
   it should "leave all non-bit cells unchanged" in {
     val inputMatrix = EXAMPLE_MATRIX.coefficients
-    val outputMatrix = AtriumSteganography.encode(0.toByte, EXAMPLE_MATRIX).coefficients
+    val outputMatrix = AtriumSteganography.encode(0.toByte, EXAMPLE_MATRIX, ENCODE_INDEX_START).coefficients
 
     INDICES.foreach(row => {
       INDICES.foreach(col => {
-        if (!BIT_CELLS_SET.contains((row, col))) {
+        // Remember, row is y, col is x, so we need to reverse these when looking-up in an (x,y) set.
+        if (!BIT_CELLS_XY_SET.contains((col, row))) {
           assert(inputMatrix(row)(col) == outputMatrix(row)(col))
         }
       })
     })
 
     // Try it with another byte value.
-    val outputMatrix2 = AtriumSteganography.encode(0xFF.toByte, EXAMPLE_MATRIX).coefficients
+    val outputMatrix2 = AtriumSteganography.encode(0xFF.toByte, EXAMPLE_MATRIX, ENCODE_INDEX_START).coefficients
 
     INDICES.foreach(row => {
       INDICES.foreach(col => {
-        if (!BIT_CELLS_SET.contains((row, col))) {
+        if (!BIT_CELLS_XY_SET.contains((col, row))) {
           assert(inputMatrix(row)(col) == outputMatrix2(row)(col))
         }
       })
@@ -71,37 +74,37 @@ class AtriumSteganographySpec extends FlatSpec {
   }
 
   it should "encode the bit cells parity to all even on a zero byte" in {
-    val outputMatrix = AtriumSteganography.encode(0.toByte, EXAMPLE_MATRIX).coefficients
+    val outputMatrix = AtriumSteganography.encode(0.toByte, EXAMPLE_MATRIX, ENCODE_INDEX_START).coefficients
 
-    BIT_CELLS_SET.foreach {
-      case (row, col) => {
-        assert((outputMatrix(row)(col) & 0x1) == 0)
-      }
+    // Remember (x, y) corresponds to (col, row) from top left.
+    BIT_CELLS_XY_SET.foreach {
+      case (x, y) => assert((outputMatrix(y)(x) & 0x1) == 0)
     }
   }
 
   it should "encode the bit cells parity to all odd on the 0xFF byte" in {
-    val outputMatrix = AtriumSteganography.encode(0xFF.toByte, EXAMPLE_MATRIX).coefficients
+    val outputMatrix = AtriumSteganography.encode(0xFF.toByte, EXAMPLE_MATRIX, ENCODE_INDEX_START).coefficients
 
-    BIT_CELLS_SET.foreach {
-      case (row, col) => assert((outputMatrix(row)(col) & 0x1) == 1)
+    // Remember (x, y) corresponds to (col, row) from top left.
+    BIT_CELLS_XY_SET.foreach {
+      case (x, y) => assert((outputMatrix(y)(x) & 0x1) == 1)
     }
   }
 
   it should "encode the bit cells parity correctly on an arbitrary byte" in {
-    val outputMatrix = AtriumSteganography.encode(0x55.toByte, EXAMPLE_MATRIX).coefficients
+    val outputMatrix = AtriumSteganography.encode(0x55.toByte, EXAMPLE_MATRIX, ENCODE_INDEX_START).coefficients
 
     INDICES.foreach(index => {
-      val (row, col) = AtriumSteganography.BIT_CELLS(index)
-      assert((outputMatrix(row)(col) & 0x1) == (index & 0x1))
+      val (x, y) = BIT_CELLS_XY(index)
+      assert((outputMatrix(y)(x) & 0x1) == (index & 0x1))
     })
   }
 
-  it should "decode the bit cells parity correctly on an arbitrary bytes" in {
-    val byte = AtriumSteganography.decode(EXAMPLE_MATRIX)
-    assert(byte == 0xDB.toByte)
+  it should "decode the bit cells parity correctly on an arbitrary byte" in {
+    val byte = AtriumSteganography.decode(EXAMPLE_MATRIX, ENCODE_INDEX_START)
+    assert(byte == 0xB7.toByte)
 
-    val byte2 = AtriumSteganography.decode(EXAMPLE_MATRIX_2)
-    assert(byte2 == 0x0F.toByte)
+    val byte2 = AtriumSteganography.decode(EXAMPLE_MATRIX_2, ENCODE_INDEX_START)
+    assert(byte2 == 0x1F.toByte)
   }
 }
