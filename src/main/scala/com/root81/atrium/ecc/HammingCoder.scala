@@ -28,7 +28,11 @@ class HammingCoder {
     val codedBytes = bytes.flatMap(b => {
       val (highBits, lowBits) = (((b & 0xf0) >> 4).toByte, (b & 0xf).toByte)
 
-      List(codewordBy4Bits(highBits), codewordBy4Bits(lowBits))
+      val (highCodeword, lowCodeword) = (codewordBy4Bits(highBits), codewordBy4Bits(lowBits))
+
+      AtriumLogger.debug(s"HammingCoder: Encoded '${new String(Array(b), "UTF-8")}' - ${byteStr(b)} to (${byteStr(highCodeword)},${byteStr(lowCodeword)})")
+
+      List(highCodeword, lowCodeword)
     })
 
     AtriumLogger.debug(s"HammingCoder: Encoded ${bytes.length} input bytes to ${codedBytes.length} output bytes")
@@ -46,7 +50,6 @@ class HammingCoder {
       decodeBytePair(pair.head, pair.last, withCorrection)
     ).toArray
 
-    AtriumLogger.debug(s"HammingCoder: Decoded ${bytes.length} input bytes to ${decodedBytes.length} output bytes - '${new String(decodedBytes, "UTF-8")}'")
     decodedBytes
   }
 
@@ -60,7 +63,11 @@ class HammingCoder {
 
     // Combine the 4-bit bytes into a single byte.
     val hiBits = dataByte0 << 4    // This is an Int but that's okay.
-    (hiBits | dataByte1).toByte
+    val resultByte = (hiBits | dataByte1).toByte
+
+    AtriumLogger.debug(s"HammingCoder: Decoded (${byteStr(b0)},${byteStr(b1)}) to ${byteStr(resultByte)} - '${new String(Array(resultByte), "UTF-8")}'")
+
+    resultByte
   }
 
   /**
@@ -76,15 +83,14 @@ class HammingCoder {
       // If correction is desired and distance is 1, use the closest code. Otherwise, throw.
       if (withCorrection && distance == 1) {
 
-        AtriumLogger.debug(s"HammingCoder: correcting '${byte.toInt}' -> '${code.toInt}'.")
+        AtriumLogger.debug(s"HammingCoder: correcting '${byteStr(byte)}' -> '${byteStr(code)}'.")
 
         byteByCodeword(code)    // Safe since the value came from the map's keys.
       } else {
-        throw ByteCorruptionException(distance, s"Coded byte $byte was corrupted by $distance bits")
+        throw ByteCorruptionException(distance, s"Coded byte ${byteStr(byte)} was corrupted by $distance bits")
       }
     })
 
-    AtriumLogger.debug(s"HammingCoder: Decoded '${byte.toInt}' to '${decodedByte.toInt}'")
     decodedByte
   }
 
@@ -117,6 +123,10 @@ class HammingCoder {
     List(p1, p2, d1, p3, d2, d3, d4, p4).fold(0) {
       case (b, v) => (b << 1) | v
     }.toByte
+  }
+
+  protected def byteStr(byte: Byte): String = {
+    (0 to 7).toList.reverse.map(shift => ((byte >> shift) & 0x1).toString).reduce(_ + _)
   }
 }
 

@@ -73,7 +73,7 @@ object ImageLoader {
   protected def writeJPGImage(image: BufferedImage, quality: Int, outputStream: ImageOutputStream): Unit = {
     val jpgWriters = ImageIO.getImageWritersByFormatName("jpg")
     if (!jpgWriters.hasNext) {
-      throw new RuntimeException("Could not find a JPG ImageWriter on this system")
+      throw new RuntimeException("Could not find a JPEG ImageWriter on this system")
     }
 
     val writer = jpgWriters.next()

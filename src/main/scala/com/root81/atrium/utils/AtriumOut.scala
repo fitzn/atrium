@@ -13,6 +13,14 @@ object AtriumOut {
   import AtriumLogger._
   import ImageConversions._
 
+  def byteStr(byte: Byte): String = {
+    (0 to 7).toList.reverse.map(shift => ((byte >> shift) & 0x1).toString).reduce(_ + _)
+  }
+
+  def print(byte: Byte): Unit = {
+    println(byteStr(byte))
+  }
+
   def print(region: RGBRegion): Unit = {
     val rows = region.pixels.grouped(region.width).toList
     if (rows.size != region.height) {
@@ -35,23 +43,9 @@ object AtriumOut {
 
     rows.foreach(row => {
       // For now, just print the Y.
-      val formattedRow = row.map(pixel => "(%.3f)".format(pixel.y)).mkString(" ")
+      val formattedRow = row.map(pixel => "(%.1f,%.1f,%.1f)".format(pixel.y, pixel.cb, pixel.cr)).mkString(" ")
       println(formattedRow)
     })
-  }
-
-  def print(region: DCTRegion): Unit = {
-    // For now, just print the first channel, channel0.
-    println(s"DCTRegion: (${region.width}x${region.height})")
-    region.channel0.foreach(row => {
-      val formattedRow = row.map(x => "%.3f".format(x)).mkString(" ")
-      println(formattedRow)
-    })
-  }
-
-  def print(matrix: QuantizedMatrix): Unit = {
-    println(s"QuantizedMatrix quality: ${matrix.quality}")
-    print(matrix.coefficients)
   }
 
   def print(tables: JPEGQuantizationTables): Unit = {
@@ -82,6 +76,16 @@ object AtriumOut {
     val prefix = " " * widest
     matrix.foreach(row => {
       val formattedRow = row.map(x => (prefix + x.toString).takeRight(widest + 1)).mkString("")
+      println(formattedRow)
+    })
+  }
+
+  def printD(matrix: Vector[Vector[Double]]): Unit = {
+    val formattedNumbers = matrix.flatten.toList.map(d => "%.1f".format(d))
+    val widest = formattedNumbers.sortBy(_.length).last.length
+    val prefix = " " * widest
+    matrix.foreach(row => {
+      val formattedRow = row.map(x => (prefix + "%.1f".format(x)).takeRight(widest + 1)).mkString("")
       println(formattedRow)
     })
   }

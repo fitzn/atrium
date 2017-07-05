@@ -13,8 +13,6 @@ import org.scalatest.junit.JUnitRunner
 @RunWith(classOf[JUnitRunner])
 class DCTSpec extends FlatSpec {
 
-  private val ERROR_MARGIN = 0.0001
-
   val MATRIX_0 = Vector(
     Vector(54, 35),
     Vector(128, 185)
@@ -61,31 +59,5 @@ class DCTSpec extends FlatSpec {
       map(_.map(_.round))   // Rounds to a Long.
 
     assert(resultMatrix == MATRIX_1)
-  }
-
-  it should "apply the DCT and then the IDCT to reverse it on a YCCRegion" in {
-    val yccPixels = List(
-      YCCPixel(26.961, 130.8435, 125.1748),
-      YCCPixel(31.2599, 130.6748, 125.6748),
-      YCCPixel(31.2599, 130.6748, 125.6748),
-      YCCPixel(27.8469, 130.3435, 125.2561)
-    )
-    val yccRegionInput = YCCRegion(0, 0, 2, 2, yccPixels)
-
-    val dctRegion = DCT.applyRegionDCT(yccRegionInput)
-    val yccRegionOutput = DCT.unapplyRegionDCT(dctRegion)
-
-    assert(yccRegionInput.width == yccRegionOutput.width)
-    assert(yccRegionInput.height == yccRegionOutput.height)
-
-    // We do pairwise pixel comparisons since there is some inherent floating point precision error introduced.
-    assert(yccRegionInput.pixels.size == yccRegionOutput.pixels.size)
-    yccRegionInput.pixels.zip(yccRegionOutput.pixels) foreach {
-      case (in, out) => {
-        assert(math.abs(in.y - out.y) <= ERROR_MARGIN)
-        assert(math.abs(in.cb - out.cb) <= ERROR_MARGIN)
-        assert(math.abs(in.cr - out.cr) <= ERROR_MARGIN)
-      }
-    }
   }
 }

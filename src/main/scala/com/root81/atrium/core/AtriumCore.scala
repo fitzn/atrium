@@ -13,8 +13,12 @@ import java.awt.image.BufferedImage
 object AtriumCore {
 
   val DEFAULT_ENCODE_FILE_SUFFIX = "-atrium"
-  val REGION_DIMENSION = 8
+  val REGION_DIMENSION = JPEGQuantization.DIMENSION
   val UTF8 = "UTF-8"
+
+  val COLOR_RANGE_NORMALIZE_CONSTANT = ImageConversions.COLOR_RANGE_NORMALIZE_CONSTANT
+  val MINIMUM_LUMINANCE_VALUE = 7.85
+  val MAXIMUM_LUMINANCE_VALUE = 247.75
 
   private val hamming = new HammingCoder()
 
@@ -55,17 +59,29 @@ object AtriumCore {
   }
 
   def writeByteIntoRegion(byte: Byte, region: RGBRegion, quality: Int): RGBRegion = {
-    // Drill down to the quantized matrix and embed the byte.
-    val yccRegion = ImageConversions.toYCCRegion(region)
-    val dctRegion = DCT.applyRegionDCT(yccRegion)
-    val quantizedYChannel = JPEGQuantization.quantize(dctRegion.channel0, quality)
-    val channelWithByte = AtriumSteganography.encode(byte, quantizedYChannel)
 
-    // Reverse the process back to an RGBRegion.
-    val yMatrixWithByte = JPEGQuantization.unquantize(channelWithByte)
-    val dctRegionWithByte = dctRegion.copy(channel0 = yMatrixWithByte)
-    val yccRegionWithByte = DCT.unapplyRegionDCT(dctRegionWithByte)
-    ImageConversions.toRGBRegion(yccRegionWithByte)
+    // Convert RGB to YCC and normalize the y values (luminance) in the region.
+    val yccRegion = ImageConversions.toYCCRegion(region)
+    val yccPixels = yccRegion.pixels.toVector
+
+    val luminanceChannel = normalizeLuminanceChannel(yccPixels, yccRegion.width)
+
+    // Calculate the DCT on the luminance channel and embed the byte into the region.
+    val luminanceDCT = DCT.applyDCT(luminanceChannel)
+
+    val encodedDCT = AtriumSteganography.encode(byte, luminanceDCT, quality)
+
+    val encodedLuminanceChannel = DCT.applyIDCT(encodedDCT)
+
+    // De-normalize the y values and reconstitute the ycc region with the encoded y values and convert to RGB.
+    val denormalizedEncodedChannel = encodedLuminanceChannel.flatMap(_.map(_ + COLOR_RANGE_NORMALIZE_CONSTANT))
+
+    assert(yccPixels.size == denormalizedEncodedChannel.size)
+    val encodedRGBPixels = yccPixels.zip(denormalizedEncodedChannel).toList.map {
+      case (yccPixel, yValue) => ImageConversions.safeConvertYCCToRGB(yccPixel, yValue)
+    }
+
+    region.copy(pixels = encodedRGBPixels)
   }
 
   def decodeMessageFromRegions(regions: List[RGBRegion], quality: Int): String = {
@@ -89,8 +105,7 @@ object AtriumCore {
 
     // Stream the remaining pairs so that we only decode regions until the end of the message, as indicated by seeing the control byte.
     val decodedBytes = regionPairs.drop(1).toStream.map(regionPair => {
-      Array(extractByteFromRegion(regionPair.head, quality), extractByteFromRegion(regionPair.last, quality))
-    }).map(bytePair => {
+      val bytePair = Array(extractByteFromRegion(regionPair.head, quality), extractByteFromRegion(regionPair.last, quality))
       hamming.fromHamming84(bytePair, withCorrection = true).head
     }).takeWhile(_ != controlByte).toArray
 
@@ -98,10 +113,17 @@ object AtriumCore {
   }
 
   def extractByteFromRegion(region: RGBRegion, quality: Int): Byte = {
+
+    // Convert RGB to YCC and normalize the y values (luminance) in the region.
     val yccRegion = ImageConversions.toYCCRegion(region)
-    val dctRegion = DCT.applyRegionDCT(yccRegion)
-    val quantizedYChannel = JPEGQuantization.quantize(dctRegion.channel0, quality)
-    AtriumSteganography.decode(quantizedYChannel)
+    val yccPixels = yccRegion.pixels.toVector
+
+    val luminanceChannel = normalizeLuminanceChannel(yccPixels, yccRegion.width)
+
+    // Calculate the DCT on the luminance channel and extract the byte from the region.
+    val luminanceDCT = DCT.applyDCT(luminanceChannel)
+
+    AtriumSteganography.decode(luminanceDCT, quality)
   }
 
   def getDefaultOutputPathFromInputPath(path: String): String = {
@@ -126,5 +148,11 @@ object AtriumCore {
 
   protected def countFullRegions(regions: List[RGBRegion]): Int = {
     regions.count(region => region.width == REGION_DIMENSION && region.height == REGION_DIMENSION)
+  }
+
+  protected def normalizeLuminanceChannel(yccPixels: Vector[YCCPixel], width: Int): Vector[Vector[Double]] = {
+    yccPixels.map(yccPixel => {
+      yccPixel.y - COLOR_RANGE_NORMALIZE_CONSTANT
+    }).grouped(width).toVector
   }
 }

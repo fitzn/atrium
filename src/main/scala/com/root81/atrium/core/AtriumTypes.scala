@@ -21,21 +21,6 @@ case class UndecodableImageException(msg: String) extends Exception(msg)
 // Data Types
 //
 
-case class QuantizedMatrix(
-  quality: Int,
-  coefficients: Vector[Vector[Int]]
-)
-
-case class DCTRegion(
-  topLeftX: Int,
-  topLeftY: Int,
-  width: Int,
-  height: Int,
-  channel0: Vector[Vector[Double]],
-  channel1: Vector[Vector[Double]],
-  channel2: Vector[Vector[Double]]
-)
-
 case class RGBRegion(
   topLeftX: Int,
   topLeftY: Int,

@@ -8,9 +8,7 @@ package com.root81.atrium.core
 
 object AtriumSteganography {
 
-  // NOTE: This matches JPEGQuantization.DIMENSION.
-  private val DIMENSION = 8
-
+  private val DIMENSION = JPEGQuantization.DIMENSION
   private val BITS_IN_BYTE = 8
 
   // Starting at the top left, where x coordinate moves left to right, and y coordinate moves top to bottom.
@@ -36,66 +34,116 @@ object AtriumSteganography {
   }
 
   /**
-    * Encodes the byte into the QuantizedMatrix's coefficients starting at the specified coefficient index.
+    * Encodes the byte into the channel by quantizing it and modulating its coefficients starting at the specified coefficient index.
     * NOTE: the decoder needs the same encode index, so it's not useful dynamically, but aids in testing.
+    * NOTE: This method assumes the channel is the luminance channel.
     */
-  def encode(byte: Byte, matrix: QuantizedMatrix, encodeStartIndex: Int = ENCODE_INDEX_DEFAULT): QuantizedMatrix = {
-    require(
-      matrix.coefficients.size == DIMENSION && matrix.coefficients.head.size == DIMENSION,
-      s"Malformed QuantizedMatrix; it is not ${DIMENSION}x$DIMENSION"
-    )
+  def encode(byte: Byte, channelDCT: Vector[Vector[Double]], quality: Int, encodeStartIndex: Int = ENCODE_INDEX_DEFAULT): Vector[Vector[Double]] = {
 
+    val quantizers = JPEGQuantization.getJavaLuminanceQuantizers(quality)
+
+    require(channelDCT.size == DIMENSION && channelDCT.head.size == DIMENSION, s"Malformed DCTRegion channel0 - it is not ${DIMENSION}x$DIMENSION")
     require(encodeStartIndex >= 0 && encodeStartIndex < 64, s"invalid encoding start index $encodeStartIndex, must be 0 <= index < 64.")
 
-    // Iterate through the bits in "byte" from highest-order to lowest and produce a Map with the coded bit value for specified bit cells.
     val bitCellsXY = getBitCellsXY(encodeStartIndex)
-    val coefficientsByCoordinates = (0 to 7).reverse.zip(bitCellsXY).map {
-      case (shift, (x, y)) => {
-        val originalCoefficient = matrix.coefficients(y)(x)
-        val coefficientIsEven = originalCoefficient % 2 == 0
-        val coefficientShouldBeEven = ((byte >> shift) & 0x1) == 0
+    val bitsToEncode = (0 to 7).toList.reverse.map(shift => (byte >> shift) & 0x1)   // high-order to low-order bit, set to 1 if odd.
 
-        // If the parity of the coefficient differs from the bit position's, then increment the coefficient to correct it.
-        // NOTE: Another approach would be to check the coefficient's sign and when modifying it,
-        //       move the value towards zero (when it's non-zero) rather than always adding.
-        val addend = if (coefficientIsEven == coefficientShouldBeEven) 0 else 1
-        val updatedCoefficient = originalCoefficient + addend
+    val encodedChannel = channelDCT.zipWithIndex.map {
+      case (rowCoefficients, yIndex) => {
+        rowCoefficients.zipWithIndex.map {
+          case (coefficient, xIndex) => {
+            val bitIndex = bitCellsXY.indexOf((xIndex, yIndex))   // Defined if these coordinates will store a bit.
+            if (bitIndex != -1) {
+              // Move the channel value up or down so that when it's quantized, it produces the same parity as the bit.
+              val bit = bitsToEncode(bitIndex)
+              val quantizer = quantizers(yIndex)(xIndex)
+              adjustDCTCoefficientToQuantizedParity(coefficient, quantizer, bit)
 
-        ((y, x), updatedCoefficient)
+            } else {
+              // Copy the dct coefficient over directly since it's not storing a bit.
+              coefficient
+            }
+          }
+        }
       }
-    }.toMap
+    }
 
-    // Loop through the original matrix coefficients and overwrite the value at the 8 bit cell coordinates.
-    val resultCoefficients =
-      (0 until DIMENSION).toVector.map(row => {
-        (0 until DIMENSION).toVector.map(col => {
-          coefficientsByCoordinates.getOrElse((row, col), matrix.coefficients(row)(col))
-        })
-      })
-
-    QuantizedMatrix(matrix.quality, resultCoefficients)
+    encodedChannel
   }
 
   /**
-    * This method reads a single byte from the 8 bit cells in the provided matrix coefficients.
-    * This method does not "reset" the matrix since it cannot know the original coefficient.
+    * Reads a single byte from the 8 bit cells in the provided channel starting at the specified coefficient index.
+    * NOTE: This method assumes the channel is the luminance channel.
     */
-  def decode(matrix: QuantizedMatrix, encodeStartIndex: Int = ENCODE_INDEX_DEFAULT): Byte = {
-    require(
-      matrix.coefficients.size == DIMENSION && matrix.coefficients.head.size == DIMENSION,
-      s"Malformed QuantizedMatrix; it is not ${DIMENSION}x$DIMENSION"
-    )
+  def decode(channelDCT: Vector[Vector[Double]], quality: Int, encodeStartIndex: Int = ENCODE_INDEX_DEFAULT): Byte = {
 
+    val quantizers = JPEGQuantization.getJavaLuminanceQuantizers(quality)
+
+    require(channelDCT.size == DIMENSION && channelDCT.head.size == DIMENSION, s"Malformed channel dimensions - it is not ${DIMENSION}x$DIMENSION")
     require(encodeStartIndex >= 0 && encodeStartIndex < 64, s"invalid encoding start index $encodeStartIndex, must be 0 <= index < 64.")
 
-    // The bit cell coordinates are highest-order to lowest, so loop through and OR in the coefficient parity bit.
-    var result = 0
     val bitCellsXY = getBitCellsXY(encodeStartIndex)
+    var result = 0
 
+    // Decode the bits in order, so we can shift the result left for each new bit.
     bitCellsXY.foreach {
-      case (x, y) => result = (result << 1) | (matrix.coefficients(y)(x) & 0x1)
+      case (x, y) => {
+        val dctCoefficient = channelDCT(y)(x)
+        val quantizer = quantizers(y)(x)
+        val quantizedValue = quantizeCoefficient(dctCoefficient, quantizer)
+
+        result = (result << 1) | (quantizedValue & 0x1)
+      }
     }
 
     result.toByte
+  }
+
+  //
+  // Internal helpers
+  //
+
+  protected def adjustDCTCoefficientToQuantizedParity(dctCoefficient: Double, quantizer: Int, parity: Int): Double = {
+    val quantizedValue = quantizeCoefficient(dctCoefficient, quantizer)
+
+    if ((quantizedValue & 0x1) == (parity & 0x1)) {
+      // Coefficient already produces the desired parity when quantized and rounded.
+      // However, if it's right on the edge of flipping the parity when quantized, move it more squarely within the quantized range.
+      val correctionFactor = getQuantizerCorrectionFactor(quantizer)
+      val higherCoefficient = dctCoefficient + correctionFactor
+      val lowerCoefficient = dctCoefficient - correctionFactor
+
+      if (quantizeCoefficient(higherCoefficient, quantizer) != quantizedValue) {
+        lowerCoefficient
+      } else if (quantizeCoefficient(lowerCoefficient, quantizer) != quantizedValue) {
+        higherCoefficient
+      } else {
+        dctCoefficient
+      }
+    } else {
+      // The coefficient *rounds* to the wrong parity, so move the coefficient to the next-closest multiple of the quantizer.
+      val roundedQuantizerMultiple = quantizedValue * quantizer.toDouble
+
+      val quantizedValueAddend = if (dctCoefficient < roundedQuantizerMultiple) {
+        // Coefficient rounded up to quantizedValue, but that was wrong parity.
+        // Next-closest parity is the floor (rather than rounding), so subtract one from the quantized value.
+        -1
+      } else {
+        // Coefficient rounded down to quantizedValue, but that was wrong parity.
+        // Next-closest parity is the ceiling, so add one to the quantized value.
+        1
+      }
+
+      // Adjust the quantized value in the correct direction and then unquantize it.
+      (quantizedValue + quantizedValueAddend) * quantizer.toDouble
+    }
+  }
+
+  protected def quantizeCoefficient(dctCoefficient: Double, quantizer: Int): Int = {
+    (dctCoefficient / quantizer).round.toInt
+  }
+
+  protected def getQuantizerCorrectionFactor(quantizer: Int): Double = {
+    quantizer / 16D
   }
 }
