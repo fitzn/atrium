@@ -7,8 +7,9 @@
 package com.root81.atrium.core
 
 import com.root81.atrium.ecc.HammingCoder
-import com.root81.atrium.utils.ImageConversions
+import com.root81.atrium.utils.{AtriumLogger, ImageConversions}
 import java.awt.image.BufferedImage
+import scala.util.control.NonFatal
 
 object AtriumCore {
 
@@ -19,6 +20,10 @@ object AtriumCore {
   val COLOR_RANGE_NORMALIZE_CONSTANT = ImageConversions.COLOR_RANGE_NORMALIZE_CONSTANT
   val MINIMUM_LUMINANCE_VALUE = 7.85
   val MAXIMUM_LUMINANCE_VALUE = 247.75
+
+  private val CORRUPTED_PLACEHOLDER_BYTE = '_'.toByte
+  private val CORRUPTED_BYTE_WARNING = s" - replacing with placeholder '${new String(Array(CORRUPTED_PLACEHOLDER_BYTE), "UTF-8")}'"
+  private val MAX_CORRUPTED_BYTES = 3
 
   private val hamming = new HammingCoder()
 
@@ -103,13 +108,55 @@ object AtriumCore {
 
     val controlByte = hamming.fromHamming84(controlBytePair, withCorrection = true).head
 
-    // Stream the remaining pairs so that we only decode regions until the end of the message, as indicated by seeing the control byte.
-    val decodedBytes = regionPairs.drop(1).toStream.map(regionPair => {
-      val bytePair = Array(extractByteFromRegion(regionPair.head, quality), extractByteFromRegion(regionPair.last, quality))
-      hamming.fromHamming84(bytePair, withCorrection = true).head
-    }).takeWhile(_ != controlByte).toArray
+    // Step through the remaining region pairs decoding bytes until the control byte is seen (or enough corrupted bytes are detected).
+    val decodedBytes = decodeRegionPairs(controlByte, regionPairs.drop(1), quality)
 
     new String(decodedBytes, UTF8)
+  }
+
+  // Decodes bytes from the region pairs until the control byte is decoded, or the maximum number of corrupted bytes is reached.
+  def decodeRegionPairs(
+    controlByte: Byte,
+    regionPairs: List[List[RGBRegion]],
+    quality: Int,
+    decodedBytes: Array[Byte] = Array.empty[Byte],
+    numCorrupted: Int = 0
+  ): Array[Byte] = {
+
+    if (regionPairs.isEmpty) {
+      return decodedBytes
+    }
+
+    if (numCorrupted == MAX_CORRUPTED_BYTES) {
+      AtriumLogger.error(s"atrium: reached maximum corrupted bytes ($MAX_CORRUPTED_BYTES), stopping")
+      return decodedBytes
+    }
+
+    // Extract the byte in the first region pair and decode it.
+    val regionPair = regionPairs.head
+
+    val (decodedByte, wasCorrupted) = try {
+      val bytePair = Array(extractByteFromRegion(regionPair.head, quality), extractByteFromRegion(regionPair.last, quality))
+      val decodedByte = hamming.fromHamming84(bytePair, withCorrection = true).head
+
+      (decodedByte, false)
+    } catch {
+      case NonFatal(e) => {
+        AtriumLogger.warn(e.getLocalizedMessage + CORRUPTED_BYTE_WARNING)
+        (CORRUPTED_PLACEHOLDER_BYTE, true)
+      }
+    }
+
+    // If the decoded byte is the control byte, we're finished. Return the already-decoded bytes.
+    if (decodedByte == controlByte) {
+      return decodedBytes
+    }
+
+    // Otherwise, add the decoded byte to the array and recurse.
+    val newDecodedBytes = decodedBytes ++ Array(decodedByte)
+    val newNumCorrupted = numCorrupted + (if (wasCorrupted) 1 else 0)
+
+    decodeRegionPairs(controlByte, regionPairs.tail, quality, newDecodedBytes, newNumCorrupted)
   }
 
   def extractByteFromRegion(region: RGBRegion, quality: Int): Byte = {
