@@ -40,13 +40,13 @@ object AtriumCore {
 
     regions.map(rgbRegion => {
 
-      if (bytesToEmbed.nonEmpty) {
+      if (bytesToEmbed.nonEmpty && isFullRegion(rgbRegion)) {
         // We have a byte to encode into this region.
         val byte = bytesToEmbed.head
         bytesToEmbed = bytesToEmbed.tail
         writeByteIntoRegion(byte, rgbRegion, quality)
       } else {
-        // No more bytes to encode, so just return the region.
+        // No more bytes to encode or it's a partial region, so just return the region.
         rgbRegion
       }
     })
@@ -94,7 +94,7 @@ object AtriumCore {
     // Each original data byte becomes 2 coded bytes after Hamming Coding.
     // Thus, with each region being one coded byte, we take the regions in pairs to decode a single data byte.
     // With 2 control data bytes, we need at least 3 regionPairs for any user data at all.
-    val regionPairs = regions.grouped(2).toList
+    val regionPairs = regions.filter(isFullRegion).grouped(2).toList
     if (regionPairs.size < 3) {
       throw new UndecodableImageException("message unrecoverable due to lack of encoded bytes")
     }
@@ -194,7 +194,11 @@ object AtriumCore {
   }
 
   protected def countFullRegions(regions: List[RGBRegion]): Int = {
-    regions.count(region => region.width == REGION_DIMENSION && region.height == REGION_DIMENSION)
+    regions.count(isFullRegion)
+  }
+
+  protected def isFullRegion(region: RGBRegion): Boolean = {
+    region.width == REGION_DIMENSION && region.height == REGION_DIMENSION
   }
 
   protected def normalizeLuminanceChannel(yccPixels: Vector[YCCPixel], width: Int): Vector[Vector[Double]] = {
