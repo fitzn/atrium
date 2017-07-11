@@ -61,19 +61,27 @@ object Atrium {
       |usage: atrium [$OPT_HELP] <command> [<args>]
       |
       |Commands:
-      |\tatrium $COMMAND_ENCODE [--out <output file>] <jpeg file> <quality> <message>
-      |\tatrium $COMMAND_DECODE <jpeg file> <quality>
-      |\tatrium $COMMAND_INFO <jpeg file>
+      |\tatrium $COMMAND_ENCODE [--out <output file>] [--quality <quality>] <jpg file> <message>
+      |\tatrium $COMMAND_DECODE <jpg file>
+      |\tatrium $COMMAND_INFO <jpg file>
     """.stripMargin
 
   def main(args: Array[String]): Unit = {
 
-    // Validate the args and perform the requested action.
-    getAtriumCommandArgs(args) match {
-      case args: EncodeArgs => handleEncode(args)
-      case args: DecodeArgs => handleDecode(args)
-      case args: InfoArgs => handleInfo(args)
-      case ExitArgs(code, errMsg) => exit(code, errMsg)
+    try {
+
+      // Validate the args and perform the requested action.
+      getAtriumCommandArgs(args) match {
+        case args: EncodeArgs => handleEncode(args)
+        case args: DecodeArgs => handleDecode(args)
+        case args: InfoArgs => handleInfo(args)
+        case ExitArgs(code, errMsg) => exit(code, errMsg)
+      }
+
+    } catch {
+      case e: Exception => {
+        exit(1, Some("atrium: " + e.getLocalizedMessage))
+      }
     }
   }
 
