@@ -61,7 +61,7 @@ object Atrium {
       |usage: atrium [$OPT_HELP] <command> [<args>]
       |
       |Commands:
-      |\tatrium $COMMAND_ENCODE [--out <output file>] [--quality <quality>] <jpg file> <message>
+      |\tatrium $COMMAND_ENCODE [--out <filename>] [--quality <int>] <jpg file> <message>
       |\tatrium $COMMAND_DECODE <jpg file>
       |\tatrium $COMMAND_INFO <jpg file>
     """.stripMargin
